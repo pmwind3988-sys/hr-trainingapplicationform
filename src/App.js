@@ -13,29 +13,33 @@ const surveyJson = {
       elements: [
         {
           type: "panel",
-          name: "Employee Details",
+          name: "employeeDetails",
           state: "expanded",
           title: "1. Employee Details",
           elements: [
             {
               type: "text",
-              name: "Employee Name",
+              name: "employeeName",
+              title: "Employee Name",
               isRequired: "true"
             },
             {
               type: "text",
-              name: "Position",
+              name: "position",
+              title: "Position",
               isRequired: "true"
             },
             {
               type: "dropdown",
-              name: "Department",
+              name: "department",
+              title: "Department",
               isRequired: "true",
               choices: ["HR", "Finance", "IT", "Logistics", "Accounting"]
             },
             {
               type: "text",
-              name: "Reporting Manager",
+              name: "reportingManager",
+              title: "Reporting Manager",
               isRequired: "true"
             }
           ]
@@ -48,23 +52,25 @@ const surveyJson = {
           elements: [
             {
               type: "text",
-              name: "Course Name",
+              name: "courseName",
+              title: "Course Name",
               isRequired: "true"
             },
             {
               type: "comment",
-              name: "Training Objective",
+              name: "trainingObjective",
               title: "Training Objective",
               isRequired: "true"
             },
             {
               type: "text",
-              name: "Training Provider",
+              name: "trainingProvider",
+              title: "Training Provider",
               isRequired: "true"
             },
             {
               type: "comment",
-              name: "Venue",
+              name: "venue",
               title: "Venue",
               isRequired: "true"
             },
