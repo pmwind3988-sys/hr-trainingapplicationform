@@ -13,6 +13,7 @@
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.2",
     "react-scripts": "5.0.1",
+    "signature_pad": "^5.1.3",
     "survey-core": "^2.5.16",
     "survey-react-ui": "^2.5.16",
     "web-vitals": "^2.1.4"
