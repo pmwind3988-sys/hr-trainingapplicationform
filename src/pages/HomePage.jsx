@@ -48,8 +48,30 @@ function HomePage() {
         >
           Training Application Form →
         </button>
+        {/* ✅ New Button */}
+<button
+  onClick={() => navigate("/hr-training-needs-identification-form")}
+  style={{
+    backgroundColor: "#2d6a3f",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    padding: "14px 32px",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "pointer",
+    width: "100%",
+    marginTop: "12px", // 👈 spacing
+    transition: "background-color 0.2s"
+  }}
+  onMouseOver={e => e.target.style.backgroundColor = "#245732"}
+  onMouseOut={e => e.target.style.backgroundColor = "#2d6a3f"}
+>
+  Training Needs Identification Form →
+</button>
       </div>
     </div>
+    
   );
 }
 
