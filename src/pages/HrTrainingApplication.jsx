@@ -290,7 +290,7 @@ const surveyJson = {
           ]
         },
         {
-          type: "panel", name: "cost", state: "expanded", title: "3. Cost",
+          type: "panel", name: "cost", state: "collapsed", title: "3. Cost",
           elements: [
             {
               type: "multipletext", name: "cost_details", titleLocation: "hidden", colCount: 1,
