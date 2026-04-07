@@ -75,7 +75,7 @@ function SignatureDialog({ open, onConfirm, onCancel, existingData }) {
       }}>
         <div style={{ marginBottom: "16px" }}>
           <div style={{ fontSize: "16px", fontWeight: 600, color: "#111", marginBottom: "4px" }}>
-            Applicant Signature
+            HOD Signature
           </div>
           <div style={{ fontSize: "13px", color: "#666" }}>
             Draw your signature below, then tap Confirm
@@ -250,7 +250,7 @@ function SignatureQuestionWrapper({ question }) {
 const surveyJson = {
   checkErrorsMode: "onValueChanged",
   textUpdateMode: "onTyping",
-  title: "[HR] Training Needs Identification Form",
+  title: "[HR] Training Needs Analysis Form",
   pages: [
     {
       name: "page1",
@@ -260,14 +260,15 @@ const surveyJson = {
           choices: ["HR", "Finance", "IT", "Logistics", "Accounting"]
         },
         {
-          type: "text", inputType: "datetime-local", name: "date", min: "today",
-          title: "Date", isRequired: true, defaultValueExpression: "now()",
+          type: "text", inputType: "date", name: "date", min: "today",
+          title: "Date", isRequired: true, defaultValueExpression: "today()",
           validators: [{ type: "expression", expression: "{date} => today()", text: "Date Invalid" }]
         },
         {
           "type": "matrixdynamic",
-          "name": "voter_registration",
-          "title": "Register Participants",
+          "name": "training_needs_employee",
+          "title": "Details",
+          titleLocation: "hidden",
           "addRowText": "Add Row",
           // This enables the # column automatically
           showIndexColumn: true,

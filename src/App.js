@@ -1,16 +1,16 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
-import HrTrainAppPage from "./pages/HrTrainingApplication";
-import HrTrainNeedsIdenPage from "./pages/HrTrainingNeedsIdentification";
-import ApprovePage from "./pages/ApprovalPage";
+import HrTrainReqPage from "./pages/HrTrainingRequisition";
+import HrTrainNeedsIdenPage from "./pages/HrTrainingNeedsAnalysis";
+import ApprovePage from "./pages/TrainReqApprovalPage";
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/hr-training-application-form" element={<HrTrainAppPage />} />
+        <Route path="/hr-training-requisition-form" element={<HrTrainReqPage />} />
         <Route path="/hr-training-needs-identification-form" element={<HrTrainNeedsIdenPage />} />
         {/* Approval page — requires M365 login (handled inside ApprovePage) */}
         {/* Accessed via link in email: /approve?token=<guid> */}

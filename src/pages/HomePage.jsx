@@ -30,7 +30,7 @@ function HomePage() {
           Select your destination.
         </p>
         <button
-          onClick={() => navigate("/hr-training-application-form")}
+          onClick={() => navigate("/hr-training-requisition-form")}
           style={{
             backgroundColor: "#1a6fa8",
             color: "#fff",
@@ -46,7 +46,7 @@ function HomePage() {
           onMouseOver={e => e.target.style.backgroundColor = "#155a8a"}
           onMouseOut={e => e.target.style.backgroundColor = "#1a6fa8"}
         >
-          Training Application Form →
+          [HR] Training Requisition Form →
         </button>
         {/* ✅ New Button */}
 <button
@@ -67,7 +67,7 @@ function HomePage() {
   onMouseOver={e => e.target.style.backgroundColor = "#245732"}
   onMouseOut={e => e.target.style.backgroundColor = "#2d6a3f"}
 >
-  Training Needs Identification Form →
+  [HR] Training Needs Analysis Form →
 </button>
       </div>
     </div>
