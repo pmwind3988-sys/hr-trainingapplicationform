@@ -37,26 +37,146 @@ const globalStyles = `
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
   @keyframes spin { to{transform:rotate(360deg)} }
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 `;
 
-// ── Tenant guard ──────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const ALLOWED_TENANT_ID = process.env.REACT_APP_AZURE_TENANT_ID;
-function getTenantFromAccount(account) {
-  return account?.tenantId || account?.idTokenClaims?.tid || null;
+
+const isAllowedTenant = (account) =>
+  (account?.tenantId ?? account?.idTokenClaims?.tid) === ALLOWED_TENANT_ID;
+
+const fmtCurrency = (v) =>
+  `RM ${parseFloat(v || 0).toFixed(2)}`;
+
+const fmtDate = (v) =>
+  v ? new Date(v).toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" }) : "—";
+
+const fmtDateMed = (v) =>
+  v ? new Date(v).toLocaleString("en-MY", { dateStyle: "medium", timeStyle: "short" }) : "—";
+
+const isYes = (v) => v === true || v === "true" || v === "Yes" || v === 1;
+
+// A layer is "rejected" if either PA field says so
+const layerIsRejected = (l) => l?.outcome === "Rejected" || l?.status === "Rejected";
+// A layer is "approved" if signed and not rejected
+const layerIsApproved = (l) => l?.status === "Signed" && !layerIsRejected(l);
+
+// Build a normalised layers array from raw payload
+const buildLayers = (payload, total) =>
+  Array.from({ length: total }, (_, i) => payload[`l${i + 1}`] || null);
+
+// Derive terminal formStatus from layer data (more reliable than PA's formStatus field)
+const deriveFormStatus = (layers, paStatus) => {
+  if (layers.some(layerIsRejected)) return "rejected";
+  if (layers.length > 0 && layers.every(layerIsApproved)) return "fullyApproved";
+  return paStatus || null;
+};
+
+const getLayerMeta = (subject, layer) => {
+  const map = {
+    Managerial: ["Group Human Resource Head", "Chief Human Resource Officer"],
+    "Non-Managerial": ["Head of Department", "Group Human Resource Head"],
+  };
+  const titles = map[subject];
+  return {
+    roleTitle: titles ? (titles[layer - 1] ?? `Layer ${layer} Approver`) : `Layer ${layer} Approver`,
+    sectionLabel: layer === 1 ? "Recommended By" : "Approved By",
+  };
+};
+
+// ── Primitive UI components ───────────────────────────────────────────────────
+function Spinner({ size = 16, color = C.purple, borderColor = C.purpleMid }) {
+  return (
+    <div style={{
+      width: size, height: size, flexShrink: 0,
+      border: `2px solid ${borderColor}`, borderTop: `2px solid ${color}`,
+      borderRadius: "50%", animation: "spin 0.9s linear infinite",
+    }} />
+  );
 }
-function isAllowedTenant(account) {
-  return getTenantFromAccount(account) === ALLOWED_TENANT_ID;
+
+function Skeleton({ width = "100%", height = 16, radius = 6, style = {} }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: "linear-gradient(90deg,#EDE9FE 25%,#DDD6FE 50%,#EDE9FE 75%)",
+      backgroundSize: "200% 100%", animation: "shimmer 1.6s infinite", ...style,
+    }} />
+  );
+}
+
+function Btn({ children, onClick, variant = "primary", disabled = false, style = {} }) {
+  const variants = {
+    primary: { background: disabled ? C.border : C.purple, color: disabled ? C.textMuted : C.white },
+    secondary: { background: C.white, color: C.textPrimary, border: `1px solid ${C.border}` },
+    danger: { background: disabled ? C.border : C.red, color: disabled ? C.textMuted : C.white },
+    ghost: { background: "none", color: C.red, border: `1px solid ${C.redPale}` },
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+        cursor: disabled ? "not-allowed" : "pointer", border: "none",
+        display: "inline-flex", alignItems: "center", gap: 8,
+        transition: "all 0.15s", fontFamily: "'DM Sans', sans-serif",
+        ...variants[variant], ...style,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Labelled read-only field
+function Field({ label, value, full = false, highlight = false }) {
+  return (
+    <div style={{ gridColumn: full ? "1 / -1" : undefined }}>
+      <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>{label}</div>
+      <div style={{
+        padding: "9px 12px", borderRadius: 7, border: `1px solid ${highlight ? C.purpleMid : C.border}`,
+        background: highlight ? C.purplePale : C.offWhite, fontSize: highlight ? 16 : 13,
+        color: highlight ? C.purple : C.textPrimary, fontWeight: highlight ? 700 : 400,
+        minHeight: 38, lineHeight: 1.6,
+      }}>
+        {value || <span style={{ color: C.textMuted }}>—</span>}
+      </div>
+    </div>
+  );
+}
+
+function SectionDivider({ number, title }) {
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, padding: "14px 0 8px", marginTop: number > 1 ? 8 : 0 }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+        background: `linear-gradient(135deg, ${C.purple}, ${C.purpleLight})`,
+        color: C.white, display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 11, fontWeight: 700,
+      }}>{number}</div>
+      <span style={{ fontWeight: 600, fontSize: 13, color: C.textPrimary, letterSpacing: "-0.01em" }}>{title}</span>
+      <div style={{ flex: 1, height: 1, background: C.border }} />
+    </div>
+  );
+}
+
+// Mini label+value row used inside detail cards
+function MetaRow({ label, value, color, bold = false, fullWidth = false }) {
+  return (
+    <div style={{ ...(fullWidth ? { flexBasis: "100%" } : {}) }}>
+      <div style={{ fontSize: 10, color: color ?? C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: bold ? 600 : 400, lineHeight: 1.5 }}>{value || "—"}</div>
+    </div>
+  );
 }
 
 // ── Page chrome ───────────────────────────────────────────────────────────────
 function PageHeader() {
   return (
     <div style={{
-      background: C.white,
-      borderBottom: `1px solid ${C.border}`,
-      padding: "0 32px",
-      display: "flex", alignItems: "center", justifyContent: "space-between",
+      background: C.white, borderBottom: `1px solid ${C.border}`,
+      padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between",
       height: 56, position: "sticky", top: 0, zIndex: 50,
       boxShadow: "0 1px 0 rgba(91,33,182,0.06)",
     }}>
@@ -77,7 +197,7 @@ function PageHeader() {
       <span style={{
         fontSize: 11, fontWeight: 500, color: C.purple,
         background: C.purplePale, borderRadius: 20, padding: "3px 10px",
-        border: `1px solid ${C.purpleMid}`, letterSpacing: "0.04em", textTransform: "uppercase"
+        border: `1px solid ${C.purpleMid}`, letterSpacing: "0.04em", textTransform: "uppercase",
       }}>
         HR Forms
       </span>
@@ -85,39 +205,41 @@ function PageHeader() {
   );
 }
 
-// ── User badge ────────────────────────────────────────────────────────────────
+// ── User badge (dropdown) ─────────────────────────────────────────────────────
 function UserBadge({ userEmail, layer, total, alreadyDone, onLogout, onSwitch }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
   const initials = userEmail
-    ? userEmail.split("@")[0].split(".").map(p => p[0]?.toUpperCase()).join("").slice(0, 2)
+    ? userEmail.split("@")[0].split(".").map((p) => p[0]?.toUpperCase()).join("").slice(0, 2)
     : "?";
 
   return (
     <div style={{ position: "relative" }} ref={ref}>
-      <div onClick={() => setOpen(o => !o)} style={{
-        display: "flex", alignItems: "center", gap: 12,
-        background: C.white, border: `1px solid ${C.border}`,
-        borderRadius: 10, padding: "10px 14px", cursor: "pointer",
-        userSelect: "none", justifyContent: "space-between",
-        boxShadow: C.shadow, transition: "border-color 0.15s",
-      }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = C.borderDark}
-        onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+      <div
+        onClick={() => setOpen((o) => !o)}
+        onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.borderDark)}
+        onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.border)}
+        style={{
+          display: "flex", alignItems: "center", gap: 12,
+          background: C.white, border: `1px solid ${C.border}`,
+          borderRadius: 10, padding: "10px 14px", cursor: "pointer",
+          userSelect: "none", justifyContent: "space-between",
+          boxShadow: C.shadow, transition: "border-color 0.15s",
+        }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 8, flexShrink: 0,
             background: `linear-gradient(135deg, ${C.purple}, ${C.purpleLight})`,
-            color: C.white, display: "flex", alignItems: "center",
-            justifyContent: "center", fontSize: 13, fontWeight: 600,
+            color: C.white, display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, fontWeight: 600,
           }}>{initials}</div>
           <div>
             <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 500 }}>{userEmail}</div>
@@ -131,11 +253,9 @@ function UserBadge({ userEmail, layer, total, alreadyDone, onLogout, onSwitch })
             fontSize: 11, background: C.purplePale, color: C.purple,
             padding: "3px 10px", borderRadius: 20, fontWeight: 600,
             border: `1px solid ${C.purpleMid}`, whiteSpace: "nowrap",
-          }}>
-            L{layer} / {total}
-          </span>
+          }}>L{layer} / {total}</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
-            style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
+            style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)" }}>
             <path d="M2 4l4 4 4-4" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
@@ -153,17 +273,20 @@ function UserBadge({ userEmail, layer, total, alreadyDone, onLogout, onSwitch })
             <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 500, wordBreak: "break-all" }}>{userEmail}</div>
           </div>
           {[
-            { icon: "🔄", label: "Switch account", action: onSwitch, color: C.textPrimary },
-            { icon: "🚪", label: "Sign out", action: onLogout, color: C.red },
-          ].map(({ icon, label, action, color }) => (
-            <button key={label} onClick={() => { setOpen(false); action(); }} style={{
-              width: "100%", padding: "10px 16px", background: "none", border: "none",
-              borderBottom: label === "Switch account" ? `1px solid ${C.border}` : "none",
-              textAlign: "left", cursor: "pointer", fontSize: 13, color,
-              display: "flex", alignItems: "center", gap: 10, transition: "background 0.1s",
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = C.offWhite}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            { icon: "🔄", label: "Switch account", action: onSwitch, color: C.textPrimary, bordered: true },
+            { icon: "🚪", label: "Sign out", action: onLogout, color: C.red, bordered: false },
+          ].map(({ icon, label, action, color, bordered }) => (
+            <button
+              key={label}
+              onClick={() => { setOpen(false); action(); }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = C.offWhite)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              style={{
+                width: "100%", padding: "10px 16px", background: "none", border: "none",
+                borderBottom: bordered ? `1px solid ${C.border}` : "none",
+                textAlign: "left", cursor: "pointer", fontSize: 13, color,
+                display: "flex", alignItems: "center", gap: 10, transition: "background 0.1s",
+              }}
             >
               <span style={{ fontSize: 15 }}>{icon}</span> {label}
             </button>
@@ -174,54 +297,7 @@ function UserBadge({ userEmail, layer, total, alreadyDone, onLogout, onSwitch })
   );
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-function Skeleton({ width = "100%", height = 16, radius = 6, style = {} }) {
-  return (
-    <div style={{
-      width, height, borderRadius: radius,
-      background: "linear-gradient(90deg,#EDE9FE 25%,#DDD6FE 50%,#EDE9FE 75%)",
-      backgroundSize: "200% 100%", animation: "shimmer 1.6s infinite", ...style,
-    }} />
-  );
-}
-
-function PageSkeleton({ userEmail }) {
-  return (
-    <div style={{ minHeight: "100vh", background: C.offWhite }}>
-      <style>{globalStyles}</style>
-      <PageHeader />
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-        <div style={{
-          background: C.white, border: `1px solid ${C.border}`, borderRadius: 12,
-          padding: "14px 18px", marginBottom: 28, display: "flex", alignItems: "center", gap: 12,
-          boxShadow: C.shadow,
-        }}>
-          <div style={{ width: 16, height: 16, border: `2px solid ${C.purpleMid}`, borderTop: `2px solid ${C.purple}`, borderRadius: "50%", animation: "spin 0.9s linear infinite", flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: C.purple }}>Loading application for <strong>{userEmail}</strong>…</span>
-        </div>
-        {[...Array(3)].map((_, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-            <div><Skeleton width={80} height={10} style={{ marginBottom: 6 }} /><Skeleton height={36} /></div>
-            <div><Skeleton width={80} height={10} style={{ marginBottom: 6 }} /><Skeleton height={36} /></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function LoginWaitScreen() {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.offWhite }}>
-      <style>{globalStyles}</style>
-      <div style={{ width: 48, height: 48, border: `3px solid ${C.purpleMid}`, borderTop: `3px solid ${C.purple}`, borderRadius: "50%", animation: "spin 0.9s linear infinite", marginBottom: 24 }} />
-      <h2 style={{ fontFamily: "'DM Serif Display', serif", color: C.textPrimary, fontSize: 22, marginBottom: 8 }}>Signing you in…</h2>
-      <p style={{ color: C.textMuted, fontSize: 14 }}>Redirecting to Microsoft 365. Please wait.</p>
-    </div>
-  );
-}
-
-// ── Full-page screens ─────────────────────────────────────────────────────────
+// ── Full-page centred screen ───────────────────────────────────────────────────
 function Screen({ icon, title, message, color = C.textSecond, children }) {
   return (
     <div style={{ minHeight: "100vh", background: C.offWhite }}>
@@ -243,22 +319,44 @@ function Screen({ icon, title, message, color = C.textSecond, children }) {
   );
 }
 
-function Btn({ children, onClick, variant = "primary", disabled = false, style = {} }) {
-  const base = {
-    padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 500,
-    cursor: disabled ? "not-allowed" : "pointer", border: "none",
-    display: "inline-flex", alignItems: "center", gap: 8,
-    transition: "all 0.15s", fontFamily: "'DM Sans', sans-serif", ...style,
-  };
-  const variants = {
-    primary: { background: disabled ? C.border : C.purple, color: disabled ? C.textMuted : C.white },
-    secondary: { background: C.white, color: C.textPrimary, border: `1px solid ${C.border}` },
-    danger: { background: disabled ? C.border : C.red, color: disabled ? C.textMuted : C.white },
-    ghost: { background: "none", color: C.red, border: `1px solid ${C.redPale}` },
-  };
-  return <button onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant] }}>{children}</button>;
+// ── Loading / skeleton screens ─────────────────────────────────────────────────
+function LoginWaitScreen() {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.offWhite }}>
+      <style>{globalStyles}</style>
+      <Spinner size={48} color={C.purple} borderColor={C.purpleMid} />
+      <h2 style={{ fontFamily: "'DM Serif Display', serif", color: C.textPrimary, fontSize: 22, marginBottom: 8, marginTop: 24 }}>Signing you in…</h2>
+      <p style={{ color: C.textMuted, fontSize: 14 }}>Redirecting to Microsoft 365. Please wait.</p>
+    </div>
+  );
 }
 
+function PageSkeleton({ userEmail }) {
+  return (
+    <div style={{ minHeight: "100vh", background: C.offWhite }}>
+      <style>{globalStyles}</style>
+      <PageHeader />
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
+        <div style={{
+          background: C.white, border: `1px solid ${C.border}`, borderRadius: 12,
+          padding: "14px 18px", marginBottom: 28, display: "flex", alignItems: "center", gap: 12,
+          boxShadow: C.shadow,
+        }}>
+          <Spinner size={16} />
+          <span style={{ fontSize: 13, color: C.purple }}>Loading application for <strong>{userEmail}</strong>…</span>
+        </div>
+        {[...Array(3)].map((_, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div><Skeleton width={80} height={10} style={{ marginBottom: 6 }} /><Skeleton height={36} /></div>
+            <div><Skeleton width={80} height={10} style={{ marginBottom: 6 }} /><Skeleton height={36} /></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Outcome screens ───────────────────────────────────────────────────────────
 function DetailCard({ items }) {
   return (
     <div style={{ background: C.offWhite, border: `1px solid ${C.border}`, borderRadius: 10, padding: "18px 20px", textAlign: "left", marginTop: 20 }}>
@@ -288,9 +386,7 @@ function SuccessPage({ userEmail, layer, signedAt, action }) {
             width: 64, height: 64, borderRadius: "50%", margin: "0 auto 20px",
             background: approved ? C.greenPale : C.redPale,
             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28,
-          }}>
-            {approved ? "✓" : "✕"}
-          </div>
+          }}>{approved ? "✓" : "✕"}</div>
           <h2 style={{ fontFamily: "'DM Serif Display', serif", color: C.textPrimary, fontWeight: 400, fontSize: 22, marginBottom: 8 }}>
             {approved ? "Approval Submitted" : "Application Rejected"}
           </h2>
@@ -300,7 +396,7 @@ function SuccessPage({ userEmail, layer, signedAt, action }) {
           <DetailCard items={[
             { label: approved ? "Approved by" : "Rejected by", value: userEmail },
             { label: "Approval layer", value: `Layer ${layer}` },
-            { label: "Date / Time", value: new Date(signedAt).toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" }) },
+            { label: "Date / Time", value: fmtDate(signedAt) },
           ]} />
           <p style={{ color: C.textMuted, fontSize: 12, marginTop: 20 }}>You may close this window.</p>
         </div>
@@ -309,9 +405,17 @@ function SuccessPage({ userEmail, layer, signedAt, action }) {
   );
 }
 
-function AlreadySignedPage({ userEmail, signedEmail, layer, signedAt, action }) {
+function AlreadySignedPage({ userEmail, signedEmail, layer, signedAt, action, rejectionReason }) {
   const approved = action !== "Rejected";
   const isSelf = signedEmail && userEmail && signedEmail.toLowerCase() === userEmail.toLowerCase();
+
+  const detailItems = [
+    { label: approved ? "Approved by" : "Rejected by", value: signedEmail },
+    { label: "Layer", value: `Layer ${layer}` },
+    { label: "Signed at", value: fmtDate(signedAt) },
+    ...(!approved && rejectionReason ? [{ label: "Rejection Reason", value: rejectionReason }] : []),
+  ];
+
   return (
     <div style={{ minHeight: "100vh", background: C.offWhite }}>
       <style>{globalStyles}</style>
@@ -331,11 +435,7 @@ function AlreadySignedPage({ userEmail, signedEmail, layer, signedAt, action }) 
               ? `You have already submitted your Layer ${layer} ${approved ? "approval" : "rejection"}. This link is now locked.`
               : `This layer has already been ${approved ? "approved" : "rejected"} by another approver.`}
           </p>
-          <DetailCard items={[
-            { label: approved ? "Approved by" : "Rejected by", value: signedEmail },
-            { label: "Layer", value: `Layer ${layer}` },
-            { label: "Signed at", value: signedAt ? new Date(signedAt).toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" }) : "—" },
-          ]} />
+          <DetailCard items={detailItems} />
           <p style={{ color: C.textMuted, fontSize: 12, marginTop: 20 }}>You may close this window.</p>
         </div>
       </div>
@@ -355,10 +455,7 @@ function WrongTenantScreen({ userEmail, onLogout, onSwitch }) {
   );
 }
 
-function WaitingForLayersScreen({ userLayer, currentLayer, totalLayers, layers, userEmail, onLogout, onSwitch }) {
-  const pendingLayers = Array.from({ length: userLayer - 1 }, (_, i) => i + 1)
-    .filter(n => { const l = layers[n - 1]; return !l || l.status !== "Signed"; });
-
+function WaitingForLayersScreen({ userLayer, totalLayers, layers, userEmail, onLogout, onSwitch }) {
   return (
     <div style={{ minHeight: "100vh", background: C.offWhite }}>
       <style>{globalStyles}</style>
@@ -371,24 +468,21 @@ function WaitingForLayersScreen({ userLayer, currentLayer, totalLayers, layers, 
         }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: C.purplePale, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>⏳</div>
           <h2 style={{ fontFamily: "'DM Serif Display', serif", color: C.textPrimary, fontWeight: 400, fontSize: 22, marginBottom: 8 }}>
-            Awaiting Prior Approval{pendingLayers.length > 1 ? "s" : ""}
+            Awaiting Prior Approvals
           </h2>
           <p style={{ color: C.textSecond, lineHeight: 1.7, fontSize: 14, marginBottom: 28 }}>
-            You are the <strong>Layer {userLayer}</strong> approver.{" "}
-            {pendingLayers.length === 1 ? `Layer ${pendingLayers[0]} must approve first.` : `Layers ${pendingLayers.join(" and ")} must approve first.`}
+            You are the <strong>Layer {userLayer}</strong> approver. Prior layers must approve first.
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28, textAlign: "left" }}>
-            {Array.from({ length: totalLayers }, (_, i) => {
+            {layers.map((l, i) => {
               const n = i + 1;
-              const l = layers[i];
-              const signed = l?.status === "Signed";
+              const signed = layerIsApproved(l);
               const isMe = n === userLayer;
               const pending = !signed && n < userLayer;
               return (
                 <div key={n} style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 16px", borderRadius: 8,
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 8,
                   background: signed ? C.greenPale : isMe ? C.purplePale : C.offWhite,
                   border: `1px solid ${signed ? "#6EE7B7" : isMe ? C.purpleMid : C.border}`,
                 }}>
@@ -401,7 +495,7 @@ function WaitingForLayersScreen({ userLayer, currentLayer, totalLayers, layers, 
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: C.textPrimary }}>Layer {n}{isMe ? " (You)" : ""}</div>
                     <div style={{ fontSize: 11, color: signed ? C.green : pending ? C.amber : C.textMuted, marginTop: 2 }}>
-                      {signed ? `Approved${l?.signedAt ? " · " + new Date(l.signedAt).toLocaleString("en-MY", { dateStyle: "medium", timeStyle: "short" }) : ""}` : pending ? "Pending approval" : isMe ? "Waiting for layers above" : "Pending"}
+                      {signed ? `Approved · ${fmtDateMed(l?.signedAt)}` : pending ? "Pending approval" : isMe ? "Waiting for layers above" : "Pending"}
                     </div>
                   </div>
                   <span style={{
@@ -425,15 +519,12 @@ function WaitingForLayersScreen({ userLayer, currentLayer, totalLayers, layers, 
   );
 }
 
-// ── Status Overlay Modal (rejected / fullyApproved) ───────────────────────────
+// ── Status overlay modal (terminal states) ────────────────────────────────────
 function StatusOverlayModal({ formStatus, layers, totalLayers, onViewDetails }) {
   const isRejected = formStatus === "rejected";
 
-  const rejectedIndex = isRejected
-    ? layers.findIndex(l => l?.outcome === "Rejected")
-    : -1;
+  const rejectedIndex = layers.findIndex(layerIsRejected);
   const rejectedLayer = rejectedIndex >= 0 ? layers[rejectedIndex] : null;
-  const rejectedLayerNum = rejectedIndex + 1;
 
   return createPortal(
     <div style={{
@@ -447,45 +538,35 @@ function StatusOverlayModal({ formStatus, layers, totalLayers, onViewDetails }) 
         maxWidth: 480, width: "100%", boxShadow: C.shadowLg,
         border: `1px solid ${C.border}`, textAlign: "center",
       }}>
-        {/* Icon */}
         <div style={{
           width: 68, height: 68, borderRadius: "50%", margin: "0 auto 20px",
           background: isRejected ? C.redPale : C.greenPale,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 30,
-        }}>
-          {isRejected ? "✕" : "✓"}
-        </div>
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
+        }}>{isRejected ? "✕" : "✓"}</div>
 
-        <h2 style={{
-          fontFamily: "'DM Serif Display', serif", fontWeight: 400,
-          fontSize: 22, color: C.textPrimary, marginBottom: 8,
-        }}>
+        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, fontSize: 22, color: C.textPrimary, marginBottom: 8 }}>
           {isRejected ? "Application Rejected" : "All Approvals Complete"}
         </h2>
-
         <p style={{ color: C.textSecond, fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
           {isRejected
-            ? `This application was rejected at Layer ${rejectedLayerNum}. No further approvals are required.`
+            ? `This application was rejected at Layer ${rejectedIndex + 1}. No further approvals are required.`
             : `All ${totalLayers} approval layer${totalLayers > 1 ? "s" : ""} have been completed successfully.`}
         </p>
 
-        {/* Rejected detail card */}
+        {/* Rejected detail */}
         {isRejected && rejectedLayer && (
           <div style={{
-            background: C.redPale, border: `1px solid #FCA5A5`,
+            background: C.redPale, border: "1px solid #FCA5A5",
             borderRadius: 10, padding: "16px 18px", textAlign: "left", marginBottom: 24,
+            display: "flex", flexDirection: "column", gap: 12,
           }}>
             {[
-              { label: "Rejected by", value: rejectedLayer.email || "—" },
-              { label: "Layer", value: `Layer ${rejectedLayerNum}` },
-              { label: "Date / Time", value: rejectedLayer.signedAt ? new Date(rejectedLayer.signedAt).toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" }) : "—" },
+              { label: "Rejected by", value: rejectedLayer.email },
+              { label: "Layer", value: `Layer ${rejectedIndex + 1}` },
+              { label: "Date / Time", value: fmtDate(rejectedLayer.signedAt) },
               { label: "Reason", value: rejectedLayer.rejectionReason || "No reason provided" },
-            ].map(({ label, value }, i, arr) => (
-              <div key={label} style={{ marginBottom: i < arr.length - 1 ? 12 : 0 }}>
-                <div style={{ fontSize: 10, color: C.red, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: 3 }}>{label}</div>
-                <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: label === "Reason" ? 500 : 400, lineHeight: 1.5 }}>{value}</div>
-              </div>
+            ].map(({ label, value }) => (
+              <MetaRow key={label} label={label} value={value} color={C.red} bold={label === "Reason"} />
             ))}
           </div>
         )}
@@ -493,14 +574,12 @@ function StatusOverlayModal({ formStatus, layers, totalLayers, onViewDetails }) 
         {/* Fully approved summary */}
         {!isRejected && (
           <div style={{
-            background: C.greenPale, border: `1px solid #6EE7B7`,
+            background: C.greenPale, border: "1px solid #6EE7B7",
             borderRadius: 10, padding: "14px 18px", textAlign: "left", marginBottom: 24,
+            display: "flex", flexDirection: "column", gap: 10,
           }}>
             {layers.map((l, i) => l && (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                marginBottom: i < layers.length - 1 ? 10 : 0,
-              }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
                   background: C.green, color: C.white,
@@ -508,28 +587,18 @@ function StatusOverlayModal({ formStatus, layers, totalLayers, onViewDetails }) 
                   fontSize: 11, fontWeight: 700,
                 }}>✓</div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: C.textPrimary }}>
-                    Layer {i + 1} — {l.email || "—"}
-                  </div>
-                  <div style={{ fontSize: 11, color: C.green, marginTop: 1 }}>
-                    {l.signedAt ? new Date(l.signedAt).toLocaleString("en-MY", { dateStyle: "medium", timeStyle: "short" }) : "—"}
-                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: C.textPrimary }}>Layer {i + 1} — {l.email || "—"}</div>
+                  <div style={{ fontSize: 11, color: C.green, marginTop: 1 }}>{fmtDateMed(l.signedAt)}</div>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        <Btn
-          onClick={onViewDetails}
-          variant="primary"
-          style={{ width: "100%", justifyContent: "center", padding: "12px 22px" }}
-        >
+        <Btn onClick={onViewDetails} variant="primary" style={{ width: "100%", justifyContent: "center", padding: "12px 22px" }}>
           📋 View Full Application Details
         </Btn>
-        <p style={{ color: C.textMuted, fontSize: 11, marginTop: 14 }}>
-          Read-only view — no actions can be taken.
-        </p>
+        <p style={{ color: C.textMuted, fontSize: 11, marginTop: 14 }}>Read-only view — no actions can be taken.</p>
       </div>
     </div>,
     document.body
@@ -542,25 +611,40 @@ function ConfirmDialog({ type, onConfirm, onCancel, loading }) {
   const isReject = type === "reject";
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(30,27,75,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, backdropFilter: "blur(2px)" }}>
-      <div style={{ background: C.white, borderRadius: 16, padding: "32px 28px", maxWidth: 480, width: "100%", boxShadow: C.shadowLg, border: `1px solid ${C.border}`, animation: "fadeUp 0.2s ease" }}>
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(30,27,75,0.4)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: 20, backdropFilter: "blur(2px)",
+    }}>
+      <div style={{
+        background: C.white, borderRadius: 16, padding: "32px 28px",
+        maxWidth: 480, width: "100%", boxShadow: C.shadowLg,
+        border: `1px solid ${C.border}`, animation: "fadeUp 0.2s ease",
+      }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
           <div style={{
             width: 44, height: 44, borderRadius: 10, flexShrink: 0,
             background: isReject ? C.redPale : C.purplePale,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 18, fontWeight: 600, color: isReject ? C.red : C.purple,
-          }}>
-            {isReject ? "✕" : "✓"}
-          </div>
+          }}>{isReject ? "✕" : "✓"}</div>
           <div>
-            <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 400, color: C.textPrimary }}>{isReject ? "Reject Application" : "Approve Application"}</h3>
-            <p style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{isReject ? "This action cannot be undone." : "Please confirm your approval."}</p>
+            <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, fontWeight: 400, color: C.textPrimary }}>
+              {isReject ? "Reject Application" : "Approve Application"}
+            </h3>
+            <p style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+              {isReject ? "This action cannot be undone." : "Please confirm your approval."}
+            </p>
           </div>
         </div>
 
-        <div style={{ background: C.offWhite, borderRadius: 8, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: C.textSecond, lineHeight: 1.7, border: `1px solid ${C.border}` }}>
-          {isReject ? "Rejecting this application will notify the applicant and stop the approval process. Please provide a reason below." : "By approving, you confirm that you have reviewed this training application and agree to proceed."}
+        <div style={{
+          background: C.offWhite, borderRadius: 8, padding: "12px 16px", marginBottom: 20,
+          fontSize: 13, color: C.textSecond, lineHeight: 1.7, border: `1px solid ${C.border}`,
+        }}>
+          {isReject
+            ? "Rejecting this application will notify the applicant and stop the approval process. Please provide a reason below."
+            : "By approving, you confirm that you have reviewed this training application and agree to proceed."}
         </div>
 
         {isReject && (
@@ -568,15 +652,29 @@ function ConfirmDialog({ type, onConfirm, onCancel, loading }) {
             <label style={{ fontSize: 11, color: C.textSecond, display: "block", marginBottom: 6, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Rejection Reason <span style={{ color: C.red }}>*</span>
             </label>
-            <textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Enter reason for rejection…" rows={3}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${reason.trim() ? C.border : C.red}`, fontSize: 13, color: C.textPrimary, resize: "vertical", fontFamily: "'DM Sans', sans-serif", outline: "none", background: C.white }} />
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Enter reason for rejection…"
+              rows={3}
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 8,
+                border: `1px solid ${reason.trim() ? C.border : C.red}`,
+                fontSize: 13, color: C.textPrimary, resize: "vertical",
+                fontFamily: "'DM Sans', sans-serif", outline: "none", background: C.white,
+              }}
+            />
           </div>
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <Btn onClick={onCancel} variant="secondary" disabled={loading}>Cancel</Btn>
-          <Btn onClick={() => onConfirm(reason)} variant={isReject ? "danger" : "primary"} disabled={loading || (isReject && !reason.trim())}>
-            {loading && <div style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.4)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />}
+          <Btn
+            onClick={() => onConfirm(reason)}
+            variant={isReject ? "danger" : "primary"}
+            disabled={loading || (isReject && !reason.trim())}
+          >
+            {loading && <Spinner size={13} color="rgba(255,255,255,1)" borderColor="rgba(255,255,255,0.4)" />}
             {loading ? "Submitting…" : isReject ? "Confirm Rejection" : "Confirm Approval"}
           </Btn>
         </div>
@@ -587,51 +685,29 @@ function ConfirmDialog({ type, onConfirm, onCancel, loading }) {
 }
 
 // ── Read-only form ────────────────────────────────────────────────────────────
-function Field({ label, value, full = false }) {
-  return (
-    <div style={{ gridColumn: full ? "1 / -1" : undefined }}>
-      <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>{label}</div>
-      <div style={{ padding: "9px 12px", background: C.offWhite, borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 13, color: C.textPrimary, minHeight: 38, lineHeight: 1.6 }}>
-        {value || <span style={{ color: C.textMuted }}>—</span>}
-      </div>
-    </div>
-  );
-}
-
-function SectionDivider({ number, title }) {
-  return (
-    <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, padding: "14px 0 8px", marginTop: number > 1 ? 8 : 0 }}>
-      <div style={{
-        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-        background: `linear-gradient(135deg, ${C.purple}, ${C.purpleLight})`,
-        color: C.white, display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 11, fontWeight: 700,
-      }}>{number}</div>
-      <span style={{ fontWeight: 600, fontSize: 13, color: C.textPrimary, letterSpacing: "-0.01em" }}>{title}</span>
-      <div style={{ flex: 1, height: 1, background: C.border }} />
-    </div>
-  );
-}
-
 function ReadOnlyForm({ data, formId, formVersion }) {
   if (!data) return null;
-  const fmt = v => (v !== undefined && v !== null && v !== "") ? `RM ${parseFloat(v).toFixed(2)}` : "RM 0.00";
-  const isYes = v => v === true || v === "true" || v === "Yes" || v === 1;
-  const fmtDt = v => v ? new Date(v).toLocaleString("en-MY", { dateStyle: "medium", timeStyle: "short" }) : "—";
-  const total = [data.trainingFee, data.mileage, data.mealAllowance, data.accommodation, data.otherCost].reduce((s, v) => s + (parseFloat(v) || 0), 0).toFixed(2);
+
+  const totalCost = [data.trainingFee, data.mileage, data.mealAllowance, data.accommodation, data.otherCost]
+    .reduce((s, v) => s + (parseFloat(v) || 0), 0)
+    .toFixed(2);
 
   return (
     <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden", boxShadow: C.shadow }}>
-      {/* Form header bar */}
+      {/* Header bar */}
       <div style={{ background: `linear-gradient(135deg, ${C.purpleDark}, ${C.purple})`, padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Training Requisition Form</div>
-          <div style={{ fontSize: 15, color: C.white, fontFamily: "'DM Serif Display', serif" }}>Form ID: <strong style={{ fontFamily: "monospace" }}>#{formId || "—"}</strong></div>
+          <div style={{ fontSize: 15, color: C.white, fontFamily: "'DM Serif Display', serif" }}>
+            Form ID: <strong style={{ fontFamily: "monospace" }}>#{formId || "—"}</strong>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Submitted: {fmtDt(data.submittedAt)}</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Submitted: {fmtDate(data.submittedAt)}</div>
           <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.2)" }} />
-          <span style={{ fontSize: 11, color: C.purpleMid, background: "rgba(255,255,255,0.1)", borderRadius: 20, padding: "3px 12px", fontWeight: 500, border: "1px solid rgba(255,255,255,0.15)" }}>Version: {formVersion || "—"}</span>
+          <span style={{ fontSize: 11, color: C.purpleMid, background: "rgba(255,255,255,0.1)", borderRadius: 20, padding: "3px 12px", fontWeight: 500, border: "1px solid rgba(255,255,255,0.15)" }}>
+            Version: {formVersion || "—"}
+          </span>
         </div>
       </div>
 
@@ -645,26 +721,23 @@ function ReadOnlyForm({ data, formId, formVersion }) {
         <SectionDivider number={2} title="Training Details" />
         <Field label="Course Name" value={data.courseName} />
         <Field label="Training Provider" value={data.trainingProvider} />
-        <Field label="Start Date / Time" value={fmtDt(data.startDate)} />
-        <Field label="End Date / Time" value={fmtDt(data.endDate)} />
+        <Field label="Start Date / Time" value={fmtDate(data.startDate)} />
+        <Field label="End Date / Time" value={fmtDate(data.endDate)} />
         <Field label="Training Objective" value={data.trainingObjective} full />
         <Field label="Venue" value={data.venue} full />
 
         <SectionDivider number={3} title="Cost Breakdown" />
-        <Field label="Training Fee" value={fmt(data.trainingFee)} />
-        <Field label="Mileage / Transport" value={fmt(data.mileage)} />
-        <Field label="Meal Allowance" value={fmt(data.mealAllowance)} />
-        <Field label="Accommodation" value={fmt(data.accommodation)} />
-        <Field label="Other Cost" value={fmt(data.otherCost)} />
+        <Field label="Training Fee" value={fmtCurrency(data.trainingFee)} />
+        <Field label="Mileage / Transport" value={fmtCurrency(data.mileage)} />
+        <Field label="Meal Allowance" value={fmtCurrency(data.mealAllowance)} />
+        <Field label="Accommodation" value={fmtCurrency(data.accommodation)} />
+        <Field label="Other Cost" value={fmtCurrency(data.otherCost)} />
         <Field label="HRDC Claimable" value={isYes(data.hrdcApplication) ? "Yes" : "No"} />
-        <div style={{ gridColumn: "1 / -1" }}>
-          <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>Total Cost</div>
-          <div style={{ padding: "10px 14px", background: C.purplePale, borderRadius: 7, border: `1px solid ${C.purpleMid}`, fontSize: 16, color: C.purple, fontWeight: 700 }}>RM {total}</div>
-        </div>
+        <Field label="Total Cost" value={`RM ${totalCost}`} full highlight />
 
         <SectionDivider number={4} title="Submitted By" />
         <Field label="Applicant Name" value={data.applicantName} />
-        <Field label="Submitted At" value={fmtDt(data.submittedAt)} />
+        <Field label="Submitted At" value={fmtDate(data.submittedAt)} />
         {data.applicantSignature && (
           <div style={{ gridColumn: "1 / -1" }}>
             <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>Applicant Signature</div>
@@ -704,8 +777,14 @@ function SignatureDialog({ open, onConfirm, onCancel, existingData }) {
   if (!open) return null;
 
   return createPortal(
-    <div onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(30,27,75,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(2px)" }}>
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 99999,
+        background: "rgba(30,27,75,0.5)", display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16, backdropFilter: "blur(2px)",
+      }}
+    >
       <div style={{ background: C.white, borderRadius: 16, padding: 28, width: "100%", maxWidth: 500, boxShadow: C.shadowLg, animation: "fadeUp 0.2s ease" }}>
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 16, fontFamily: "'DM Serif Display', serif", color: C.textPrimary, marginBottom: 4 }}>Approver Signature</div>
@@ -730,32 +809,39 @@ function SignatureDialog({ open, onConfirm, onCancel, existingData }) {
 
 function SignatureTrigger({ value, onChange, submitting }) {
   const [dialogOpen, setDialogOpen] = useState(false);
+
   if (submitting) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: C.purple, fontSize: 13 }}>
-        <div style={{ width: 16, height: 16, border: `2px solid ${C.purpleMid}`, borderTop: `2px solid ${C.purple}`, borderRadius: "50%", animation: "spin 0.9s linear infinite", flexShrink: 0 }} />
-        Submitting…
+        <Spinner size={16} /> Submitting…
       </div>
     );
   }
+
   return (
     <>
       <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
         {value ? "Signature captured — tap to edit" : "Tap the box below to draw your signature:"}
       </div>
-      <div onClick={() => setDialogOpen(true)} style={{
-        border: value ? `2px solid ${C.purple}` : `2px dashed ${C.border}`,
-        borderRadius: 10, background: value ? C.purplePale : C.offWhite,
-        minHeight: 100, maxWidth: 460, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", cursor: "pointer",
-        position: "relative", overflow: "hidden", userSelect: "none",
-        transition: "border-color 0.15s",
-      }}>
+      <div
+        onClick={() => setDialogOpen(true)}
+        style={{
+          border: value ? `2px solid ${C.purple}` : `2px dashed ${C.border}`,
+          borderRadius: 10, background: value ? C.purplePale : C.offWhite,
+          minHeight: 100, maxWidth: 460, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", cursor: "pointer",
+          position: "relative", overflow: "hidden", userSelect: "none",
+          transition: "border-color 0.15s",
+        }}
+      >
         {value ? (
           <>
             <img src={value} alt="Signature" style={{ maxWidth: "90%", maxHeight: 80, display: "block", pointerEvents: "none" }} />
             <div style={{ position: "absolute", top: 8, right: 8, background: C.purple, color: C.white, borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>Tap to edit</div>
-            <button onClick={e => { e.stopPropagation(); onChange(null); }} style={{ position: "absolute", top: 8, left: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: C.red }}>Remove</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onChange(null); }}
+              style={{ position: "absolute", top: 8, left: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: C.red }}
+            >Remove</button>
           </>
         ) : (
           <div style={{ textAlign: "center", color: C.textMuted, pointerEvents: "none" }}>
@@ -768,66 +854,63 @@ function SignatureTrigger({ value, onChange, submitting }) {
       <div style={{ marginTop: 8, fontSize: 12, color: value ? C.green : C.textMuted, display: "flex", alignItems: "center", gap: 5 }}>
         {value ? <><span>✓</span> Signature ready — click Approve to submit</> : "Please draw your signature above before approving."}
       </div>
-      <SignatureDialog open={dialogOpen} onConfirm={dataUrl => { onChange(dataUrl); setDialogOpen(false); }} onCancel={() => setDialogOpen(false)} existingData={value} />
+      <SignatureDialog
+        open={dialogOpen}
+        onConfirm={(dataUrl) => { onChange(dataUrl); setDialogOpen(false); }}
+        onCancel={() => setDialogOpen(false)}
+        existingData={value}
+      />
     </>
   );
 }
 
-// ── Layer meta ────────────────────────────────────────────────────────────────
-function getLayerMeta(subject, layer) {
-  if (subject === "Managerial") {
-    return {
-      roleTitle: layer === 1 ? "Group Human Resource Head" : "Chief Human Resource Officer",
-      sectionLabel: layer === 1 ? "Recommended By" : "Approved By",
-    };
-  }
-  if (subject === "Non-Managerial") {
-    return {
-      roleTitle: layer === 1 ? "Head of Department" : "Group Human Resource Head",
-      sectionLabel: layer === 1 ? "Recommended By" : "Approved By",
-    };
-  }
-  return { roleTitle: `Layer ${layer} Approver`, sectionLabel: `Layer ${layer}` };
-}
-
 // ── Approval box ──────────────────────────────────────────────────────────────
-function ApprovalBox({ layer, totalLayers, email, signedAt, status, outcome, rejectionReason, isMine, onApprove, onReject, submitting, subject }) {
-  const signed = status === "Signed";
-  const rejected = outcome === "Rejected";
+function ApprovalBox({ layer, totalLayers, layerData, isMine, onApprove, onReject, submitting, subject, skipped = false }) {
   const [sig, setSig] = useState(null);
+
+  // Normalise layer state from layerData object
+  const rejected = layerIsRejected(layerData);
+  const actioned = layerIsApproved(layerData) || rejected;
+
+  const { email, signedAt, rejectionReason } = layerData || {};
   const { roleTitle, sectionLabel } = getLayerMeta(subject, layer);
 
-  const theme = signed
-    ? rejected
+  const theme = (() => {
+    if (actioned) return rejected
       ? { border: "#FCA5A5", bg: C.redPale, accent: C.red, badgeBg: "#FCA5A5", badgeColor: "#7F1D1D" }
-      : { border: "#6EE7B7", bg: C.greenPale, accent: C.green, badgeBg: "#6EE7B7", badgeColor: "#064E3B" }
-    : isMine
-      ? { border: C.borderDark, bg: C.purplePale, accent: C.purple, badgeBg: C.purpleMid, badgeColor: C.purpleDark }
-      : { border: C.border, bg: C.offWhite, accent: C.textMuted, badgeBg: C.border, badgeColor: C.textMuted };
+      : { border: "#6EE7B7", bg: C.greenPale, accent: C.green, badgeBg: "#6EE7B7", badgeColor: "#064E3B" };
+    if (skipped) return { border: C.border, bg: "#F9FAFB", accent: C.textMuted, badgeBg: "#F3F4F6", badgeColor: C.textMuted };
+    if (isMine) return { border: C.borderDark, bg: C.purplePale, accent: C.purple, badgeBg: C.purpleMid, badgeColor: C.purpleDark };
+    return { border: C.border, bg: C.offWhite, accent: C.textMuted, badgeBg: C.border, badgeColor: C.textMuted };
+  })();
 
-  const badgeText = signed ? (rejected ? "Rejected" : "Approved") : isMine ? "Action Required" : "Pending";
+  const badgeText = actioned
+    ? (rejected ? "Rejected" : "Approved")
+    : skipped ? "Not Required"
+    : isMine ? "Action Required"
+    : "Pending";
 
   return (
     <div style={{
-      border: `1px solid ${theme.border}`, borderRadius: 12, padding: "22px 24px",
-      marginBottom: 12, background: theme.bg,
-      opacity: (!signed && !isMine) ? 0.55 : 1,
+      border: `1px solid ${theme.border}`, borderRadius: 12, padding: "22px 24px", marginBottom: 12,
+      background: theme.bg,
+      opacity: (!actioned && !isMine) ? (skipped ? 0.45 : 0.55) : 1,
       boxShadow: isMine ? `0 0 0 3px ${C.purplePale}, ${C.shadow}` : C.shadow,
       transition: "box-shadow 0.2s",
     }}>
-      {/* Section label */}
       <div style={{ fontSize: 10, fontWeight: 700, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
         {sectionLabel}
       </div>
 
+      {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
             width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-            background: signed ? (rejected ? C.red : C.green) : isMine ? C.purple : C.border,
+            background: actioned ? (rejected ? C.red : C.green) : isMine ? C.purple : C.border,
             color: C.white, display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 13, fontWeight: 700,
-          }}>{signed ? (rejected ? "✕" : "✓") : layer}</div>
+          }}>{actioned ? (rejected ? "✕" : "✓") : layer}</div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15, color: C.textPrimary, letterSpacing: "-0.01em" }}>{roleTitle}</div>
             <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Layer {layer} of {totalLayers}</div>
@@ -840,27 +923,18 @@ function ApprovalBox({ layer, totalLayers, email, signedAt, status, outcome, rej
         }}>{badgeText}</span>
       </div>
 
-      <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
-        {[
-          { label: "Approver Email", value: email || "—" },
-          { label: "Date / Time", value: signedAt ? new Date(signedAt).toLocaleString("en-MY", { dateStyle: "long", timeStyle: "short" }) : "—" },
-          ...(signed && outcome ? [{ label: "Decision", value: outcome }] : []),
-          // ── Show rejection reason if present ──────────────────────────────
-          ...(signed && rejected && rejectionReason ? [{ label: "Rejection Reason", value: rejectionReason }] : []),
-        ].map(({ label, value }) => (
-          <div key={label} style={{ ...(label === "Rejection Reason" ? { flexBasis: "100%" } : {}) }}>
-            <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{label}</div>
-            <div style={{
-              fontSize: 13,
-              color: label === "Decision" ? (rejected ? C.red : C.green) : label === "Rejection Reason" ? C.textPrimary : C.textPrimary,
-              fontWeight: label === "Decision" ? 600 : label === "Rejection Reason" ? 500 : 400,
-              lineHeight: label === "Rejection Reason" ? 1.6 : "normal",
-            }}>{value}</div>
-          </div>
-        ))}
-      </div>
+      {/* Actioned detail row */}
+      {actioned && (
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+          <MetaRow label="Approver Email" value={email} />
+          <MetaRow label="Date / Time" value={fmtDate(signedAt)} />
+          <MetaRow label="Decision" value={rejected ? "Rejected" : "Approved"} bold />
+          {rejected && <MetaRow label="Rejection Reason" value={rejectionReason || "No reason provided"} bold fullWidth />}
+        </div>
+      )}
 
-      {signed && !rejected && (
+      {/* Signature badge (approved only) */}
+      {actioned && !rejected && (
         <div>
           <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Signature</div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, color: C.textMuted }}>
@@ -869,22 +943,29 @@ function ApprovalBox({ layer, totalLayers, email, signedAt, status, outcome, rej
         </div>
       )}
 
-      {!signed && !isMine && (
+      {/* Skipped */}
+      {skipped && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.textMuted, fontSize: 12 }}>
+          <span>⛔</span> Not required — application was rejected at a previous layer
+        </div>
+      )}
+
+      {/* Locked */}
+      {!actioned && !isMine && !skipped && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.textMuted, fontSize: 12 }}>
           <span>🔒</span> Locked — waiting for Layer {layer - 1} approval
         </div>
       )}
 
-      {isMine && !signed && (
+      {/* My action area */}
+      {isMine && !actioned && (
         <div>
           <SignatureTrigger value={sig} onChange={setSig} submitting={submitting} />
           <div style={{ display: "flex", gap: 10, marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
             <Btn onClick={() => onApprove(sig)} variant="primary" disabled={submitting || !sig} style={{ flex: 1, minWidth: 140, justifyContent: "center" }}>
               ✓ Approve Application
             </Btn>
-            <Btn onClick={onReject} variant="ghost" disabled={submitting}>
-              ✕ Reject
-            </Btn>
+            <Btn onClick={onReject} variant="ghost" disabled={submitting}>✕ Reject</Btn>
           </div>
         </div>
       )}
@@ -892,8 +973,12 @@ function ApprovalBox({ layer, totalLayers, email, signedAt, status, outcome, rej
   );
 }
 
-// ── Shared approval chain renderer ────────────────────────────────────────────
+// ── Approval chain ────────────────────────────────────────────────────────────
 function ApprovalChain({ layers, totalLayers, myLayer, curLayer, alreadyDone, subject, submitting, onApprove, onReject, readOnly = false }) {
+  const rejectedAtIndex = layers.findIndex(layerIsRejected);
+  const hasRejection = rejectedAtIndex >= 0;
+  const approvedCount = layers.filter(layerIsApproved).length;
+
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden", boxShadow: C.shadow }}>
@@ -903,35 +988,35 @@ function ApprovalChain({ layers, totalLayers, myLayer, curLayer, alreadyDone, su
             <span style={{ fontWeight: 600, fontSize: 14, color: C.textPrimary }}>Approval Chain</span>
           </div>
           <span style={{ fontSize: 12, color: C.textMuted }}>
-            <span style={{ color: C.purple, fontWeight: 600 }}>{layers.filter(l => l?.status === "Signed").length}</span> of {totalLayers} completed
+            {hasRejection
+              ? <span style={{ color: C.red, fontWeight: 600 }}>Rejected at Layer {rejectedAtIndex + 1}</span>
+              : <><span style={{ color: C.purple, fontWeight: 600 }}>{approvedCount}</span> of {totalLayers} approved</>}
           </span>
         </div>
 
         <div style={{ padding: "16px 22px" }}>
-          {layers.map((layer, i) => {
+          {layers.map((layerData, i) => {
             const layerNum = i + 1;
-            // In readOnly mode (terminal state), no layer is ever "mine" — pure view
             const isMine = !readOnly && myLayer === layerNum && curLayer === layerNum && !alreadyDone;
+            const skipped = hasRejection && i > rejectedAtIndex && !layerData?.email;
+
             return (
               <ApprovalBox
                 key={layerNum}
                 layer={layerNum}
                 totalLayers={totalLayers}
-                email={layer?.email}
-                signedAt={layer?.signedAt}
-                status={layer?.status}
-                outcome={layer?.outcome}
-                rejectionReason={layer?.rejectionReason}
+                layerData={layerData || {}}
                 isMine={isMine}
                 onApprove={isMine ? onApprove : null}
                 onReject={isMine ? onReject : null}
                 subject={subject}
                 submitting={isMine && submitting}
+                skipped={skipped}
               />
             );
           })}
 
-          {!readOnly && alreadyDone && (
+          {!readOnly && alreadyDone && !hasRejection && (
             <div style={{ background: C.greenPale, border: "1px solid #6EE7B7", borderRadius: 8, padding: "12px 16px", color: C.green, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
               <span>✓</span> You have already actioned this application. Waiting for remaining approvers.
             </div>
@@ -942,7 +1027,24 @@ function ApprovalChain({ layers, totalLayers, myLayer, curLayer, alreadyDone, su
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Page shell for content views ──────────────────────────────────────────────
+function PageShell({ children }) {
+  return (
+    <div style={{ minHeight: "100vh", background: C.offWhite }}>
+      <style>{globalStyles}</style>
+      <PageHeader />
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px", animation: "fadeUp 0.3s ease" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PageFooter() {
+  return <div style={{ marginTop: 24, textAlign: "center", fontSize: 11, color: C.textMuted, paddingBottom: 32 }}>PMW International Berhad · HR-Forms · Confidential</div>;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function TrainReqApprovePage() {
   const { error: msalError } = useMsalAuthentication(InteractionType.Redirect, loginRequest);
   const { instance, accounts, inProgress } = useMsal();
@@ -953,23 +1055,25 @@ export default function TrainReqApprovePage() {
   const [data, setData] = useState(null);
   const [signResult, setSignResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [dialog, setDialog] = useState(null);
+  const [dialog, setDialog] = useState(null);   // "approve" | "reject" | null
   const [pendingSig, setPendingSig] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  // Controls whether the status overlay is shown for terminal states
   const [showOverlay, setShowOverlay] = useState(true);
 
   const token = new URLSearchParams(window.location.search).get("token");
+  const userEmail = accounts[0]?.username || "";
 
   const handleLogout = useCallback(() => {
     instance.logoutRedirect({ postLogoutRedirectUri: window.location.href });
   }, [instance]);
 
   const handleSwitch = useCallback(() => {
-    instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: window.location.href, onRedirectNavigate: () => false })
+    instance
+      .logoutRedirect({ account: accounts[0], postLogoutRedirectUri: window.location.href, onRedirectNavigate: () => false })
       .catch(() => instance.loginRedirect({ ...loginRequest, prompt: "select_account" }));
   }, [instance, accounts]);
 
+  // MSAL error guard
   useEffect(() => {
     if (msalError && msalError.errorCode !== "interaction_in_progress") {
       setStatus("error");
@@ -977,14 +1081,12 @@ export default function TrainReqApprovePage() {
     }
   }, [msalError]);
 
+  // Fetch form data
   useEffect(() => {
     if (!isAuthenticated || inProgress !== InteractionStatus.None) return;
-    if (!token || accounts.length === 0) return;
-    if (status !== "idle") return;
+    if (!token || accounts.length === 0 || status !== "idle") return;
 
     const account = accounts[0];
-    const userEmail = account.username;
-
     if (!isAllowedTenant(account)) { setStatus("wrong_tenant"); return; }
 
     setStatus("loading");
@@ -992,104 +1094,100 @@ export default function TrainReqApprovePage() {
     fetch(process.env.REACT_APP_FLOW_URL_FETCH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, userEmail }),
+      body: JSON.stringify({ token, userEmail: account.username }),
     })
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         const payload = d.body ?? d;
+
         if (payload.alreadySigned) { setData(payload); setStatus("already_signed"); return; }
         if (!payload.authorized) { setStatus("unauthorized"); setErrorMsg(payload.message || "You are not authorised."); return; }
+
         const subject = payload.submissionData?.subject;
         if (!subject || subject === "Unassigned") { setStatus("unassigned"); return; }
-        setData(payload);
 
-        // ── Terminal states: rejected or all layers done ──────────────────
-        const fs = payload.formStatus;
-        if (fs === "rejected" || fs === "fullyApproved") {
-          setShowOverlay(true);   // always show modal first
-          setStatus("terminal");
-        } else {
-          setStatus("ready");
-        }
+        const total = parseInt(payload.totalLayers) || 0;
+        const layers = buildLayers(payload, total);
+        const formStatus = deriveFormStatus(layers, payload.formStatus);
+        const isTerminal = formStatus === "rejected" || formStatus === "fullyApproved";
+
+        const patchedPayload = { ...payload, formStatus };
+        setData(patchedPayload);
+
+        if (isTerminal) { setShowOverlay(true); setStatus("terminal"); }
+        else setStatus("ready");
       })
-      .catch(e => { console.error("Fetch error:", e); setStatus("error"); setErrorMsg("Unable to load the application. Please try again or contact HR."); });
+      .catch((e) => {
+        console.error("Fetch error:", e);
+        setStatus("error");
+        setErrorMsg("Unable to load the application. Please try again or contact HR.");
+      });
   }, [isAuthenticated, inProgress, accounts, token, status]);
+
+  // Submit helper (shared approve/reject)
+  const submitAction = useCallback(async ({ action, signature = "", rejectionReason = "" }) => {
+    if (!data || !accounts.length) return;
+    const signedAt = new Date().toISOString();
+
+    const doSubmit = async () => {
+      setSubmitting(true); setStatus("ready"); setDialog(null);
+      try {
+        const res = await fetch(process.env.REACT_APP_FLOW_URL_SIGN, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: String(token),
+            userEmail: String(userEmail),
+            userLayer: String(data.userLayer),
+            signature: String(signature),
+            signedAt: String(signedAt),
+            action: String(action),
+            formID: String(data?.formId || ""),
+            submissionID: String(data?.submissionID || ""),
+            rejectionReason: String(rejectionReason),
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("PA error body:", errText);
+          throw new Error(`HTTP ${res.status}: ${errText}`);
+        }
+        setSignResult({ signedAt, action });
+        setStatus("done");
+        retryFnRef.current = null;
+      } catch (e) {
+        console.error(e);
+        setErrorMsg(`Failed to submit ${action}. Please try again.`);
+        setStatus("submit_error");
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    retryFnRef.current = doSubmit;
+    await doSubmit();
+  }, [data, token, userEmail, accounts]);
 
   const handleApproveClick = useCallback((sig) => { setPendingSig(sig); setDialog("approve"); }, []);
   const handleRejectClick = useCallback(() => { setPendingSig(null); setDialog("reject"); }, []);
 
-  const handleConfirmApprove = useCallback(async () => {
-    if (!data || !accounts.length || !pendingSig) return;
-    const userEmail = accounts[0].username;
-    const signedAt = new Date().toISOString();
-    const doSubmit = async () => {
-      setSubmitting(true); setStatus("ready"); setDialog(null);
-      try {
-        const res = await fetch(process.env.REACT_APP_FLOW_URL_SIGN, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: String(token),
-            userEmail: String(userEmail),
-            userLayer: String(data.userLayer),
-            signature: String(pendingSig),
-            signedAt: String(signedAt),
-            action: "approved",
-            formID: String(data?.formId || ""),
-            submissionID: String(data?.submissionID || "")
-          }),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("PA 400 response body:", errText);
-          throw new Error(`HTTP ${res.status}: ${errText}`);
-        }
-        setSignResult({ signedAt, action: "approved" }); setStatus("done"); retryFnRef.current = null;
-      } catch (e) { console.error(e); setErrorMsg("Failed to submit approval. Please try again."); setStatus("submit_error"); }
-      finally { setSubmitting(false); }
-    };
-    retryFnRef.current = doSubmit; await doSubmit();
-  }, [data, token, accounts, pendingSig]);
+  const handleConfirmApprove = useCallback(() =>
+    submitAction({ action: "approved", signature: pendingSig }),
+    [submitAction, pendingSig]);
 
-  const handleConfirmReject = useCallback(async (reason) => {
-    if (!data || !accounts.length) return;
-    const userEmail = accounts[0].username;
-    const signedAt = new Date().toISOString();
-    const doSubmit = async () => {
-      setSubmitting(true); setStatus("ready"); setDialog(null);
-      try {
-        const res = await fetch(process.env.REACT_APP_FLOW_URL_SIGN, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: String(token),
-            userEmail: String(userEmail),
-            userLayer: String(data.userLayer),
-            signature: "",
-            signedAt: String(signedAt),
-            action: "rejected",
-            formID: String(data?.formId || ""),
-            submissionID: String(data?.submissionID || ""),
-            rejectionReason: String(reason || "")
-          }),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("PA 400 response body:", errText);
-          throw new Error(`HTTP ${res.status}: ${errText}`);
-        }
-        setSignResult({ signedAt, action: "rejected" }); setStatus("done"); retryFnRef.current = null;
-      } catch (e) { console.error(e); setErrorMsg("Failed to submit rejection. Please try again."); setStatus("submit_error"); }
-      finally { setSubmitting(false); }
-    };
-    retryFnRef.current = doSubmit; await doSubmit();
-  }, [data, token, accounts]);
+  const handleConfirmReject = useCallback((reason) =>
+    submitAction({ action: "rejected", rejectionReason: reason }),
+    [submitAction]);
 
-  const userEmail = accounts[0]?.username || "";
-
-  // ── Render states ──────────────────────────────────────────────────────────
+  // ── Render states ────────────────────────────────────────────────────────────
   if (!isAuthenticated || inProgress !== InteractionStatus.None) return <LoginWaitScreen />;
   if (status === "idle" || status === "loading") return <PageSkeleton userEmail={userEmail} />;
   if (status === "wrong_tenant") return <WrongTenantScreen userEmail={userEmail} onLogout={handleLogout} onSwitch={handleSwitch} />;
   if (status === "unauthorized") return <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red} />;
+  if (status === "unassigned") return (
+    <Screen icon="⚠️" title="No Subject Assigned" color={C.amber}
+      message="This training application has not been assigned a subject (Managerial / Non-Managerial). Please contact HR to update the form before approval can proceed." />
+  );
   if (status === "error") return (
     <Screen icon="❌" title="Something Went Wrong" message={errorMsg} color={C.red}>
       <Btn onClick={() => { setStatus("idle"); window.location.reload(); }} variant="primary">Try again</Btn>
@@ -1100,30 +1198,32 @@ export default function TrainReqApprovePage() {
       <Btn onClick={() => retryFnRef.current?.()} variant="primary">Try again</Btn>
     </Screen>
   );
+  if (status === "done") return (
+    <SuccessPage userEmail={userEmail} layer={data?.userLayer} signedAt={signResult?.signedAt} action={signResult?.action} />
+  );
   if (status === "already_signed") {
     const ld = data?.[`l${data?.userLayer}`];
-    return <AlreadySignedPage userEmail={userEmail} signedEmail={ld?.email || userEmail} layer={data?.userLayer} signedAt={ld?.signedAt} action={ld?.outcome} />;
+    return (
+      <AlreadySignedPage
+        userEmail={userEmail}
+        signedEmail={ld?.email || userEmail}
+        layer={data?.userLayer}
+        signedAt={ld?.signedAt}
+        action={ld?.outcome || ld?.status}
+        rejectionReason={ld?.rejectionReason}
+      />
+    );
   }
-  if (status === "done") return <SuccessPage userEmail={userEmail} layer={data?.userLayer} signedAt={signResult?.signedAt} action={signResult?.action} />;
-  if (status === "unassigned") return (
-    <Screen icon="⚠️" title="No Subject Assigned" color={C.amber}
-      message="This training application has not been assigned a subject (Managerial / Non-Managerial). Please contact HR to update the form before approval can proceed." />
-  );
   if (!data) return null;
 
-  // ── Terminal state: rejected or fullyApproved ──────────────────────────────
+  // ── Terminal state (rejected / fullyApproved) ──────────────────────────────
   if (status === "terminal") {
     const { submissionData, formId, formVersion, totalLayers, formStatus } = data;
     const total = parseInt(totalLayers);
-    const layers = Array.from({ length: total }, (_, i) => data[`l${i + 1}`] || null);
-    const isRejected = formStatus === "rejected";
+    const layers = buildLayers(data, total);
 
     return (
-      <div style={{ minHeight: "100vh", background: C.offWhite }}>
-        <style>{globalStyles}</style>
-        <PageHeader />
-
-        {/* Overlay modal — shown first, dismissed by "View Details" */}
+      <PageShell>
         {showOverlay && (
           <StatusOverlayModal
             formStatus={formStatus}
@@ -1133,51 +1233,35 @@ export default function TrainReqApprovePage() {
           />
         )}
 
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px", animation: "fadeUp 0.3s ease" }}>
-          {/* Persistent status banner (visible after overlay is dismissed) */}
-          <div style={{
-            background: isRejected ? C.redPale : C.greenPale,
-            border: `1px solid ${isRejected ? "#FCA5A5" : "#6EE7B7"}`,
-            borderRadius: 10, padding: "12px 18px", marginBottom: 20,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: 10, flexWrap: "wrap",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: isRejected ? C.red : C.green, fontWeight: 500 }}>
-              <span>{isRejected ? "✕" : "✓"}</span>
-              {isRejected
-                ? "This application has been rejected — viewing in read-only mode."
-                : "All approvals are complete — viewing in read-only mode."}
-            </div>
-            {/* Re-open overlay button */}
-            {!showOverlay && (
-              <button
-                onClick={() => setShowOverlay(true)}
-                style={{
-                  background: "none", border: `1px solid ${isRejected ? "#FCA5A5" : "#6EE7B7"}`,
-                  borderRadius: 6, padding: "4px 12px", fontSize: 12,
-                  color: isRejected ? C.red : C.green, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                  fontWeight: 500,
-                }}
-              >
-                View summary
-              </button>
-            )}
+        <div style={{
+          background: formStatus === "rejected" ? C.redPale : C.greenPale,
+          border: `1px solid ${formStatus === "rejected" ? "#FCA5A5" : "#6EE7B7"}`,
+          borderRadius: 10, padding: "12px 18px", marginBottom: 20,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: formStatus === "rejected" ? C.red : C.green, fontWeight: 500 }}>
+            <span>{formStatus === "rejected" ? "✕" : "✓"}</span>
+            {formStatus === "rejected"
+              ? "This application has been rejected — viewing in read-only mode."
+              : "All approvals are complete — viewing in read-only mode."}
           </div>
-
-          <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
-
-          <ApprovalChain
-            layers={layers}
-            totalLayers={total}
-            subject={data?.submissionData?.subject}
-            readOnly={true}
-          />
-
-          <div style={{ marginTop: 24, textAlign: "center", fontSize: 11, color: C.textMuted, paddingBottom: 32 }}>
-            PMW International Berhad · HR-Forms · Confidential
-          </div>
+          {!showOverlay && (
+            <button
+              onClick={() => setShowOverlay(true)}
+              style={{
+                background: "none", border: `1px solid ${formStatus === "rejected" ? "#FCA5A5" : "#6EE7B7"}`,
+                borderRadius: 6, padding: "4px 12px", fontSize: 12,
+                color: formStatus === "rejected" ? C.red : C.green,
+                cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500,
+              }}
+            >View summary</button>
+          )}
         </div>
-      </div>
+
+        <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
+        <ApprovalChain layers={layers} totalLayers={total} subject={submissionData?.subject} readOnly />
+        <PageFooter />
+      </PageShell>
     );
   }
 
@@ -1188,55 +1272,51 @@ export default function TrainReqApprovePage() {
   const curLayer = parseInt(currentLayer);
   const alreadyDone = myLayer < curLayer;
 
-  const layers = Array.from({ length: total }, (_, i) => {
-    const n = i + 1;
-    return data[`l${n}`] || { email: null, signedAt: null, status: "Pending", outcome: null };
-  });
+  const layers = buildLayers(data, total);
 
-  const mustWait = myLayer > curLayer;
-  if (mustWait) {
-    return <WaitingForLayersScreen userLayer={myLayer} currentLayer={curLayer} totalLayers={total} layers={layers} userEmail={userEmail} onLogout={handleLogout} onSwitch={handleSwitch} />;
+  if (myLayer > curLayer) {
+    return (
+      <WaitingForLayersScreen
+        userLayer={myLayer}
+        totalLayers={total}
+        layers={layers}
+        userEmail={userEmail}
+        onLogout={handleLogout}
+        onSwitch={handleSwitch}
+      />
+    );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.offWhite }}>
-      <style>{globalStyles}</style>
-      <PageHeader />
-
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px", animation: "fadeUp 0.3s ease" }}>
-        {dialog && (
-          <ConfirmDialog type={dialog} loading={submitting}
-            onConfirm={dialog === "approve" ? handleConfirmApprove : handleConfirmReject}
-            onCancel={() => setDialog(null)} />
-        )}
-
-        {/* User badge */}
-        <div style={{ marginBottom: 24 }}>
-          <UserBadge userEmail={userEmail} layer={myLayer} total={total} alreadyDone={alreadyDone} onLogout={handleLogout} onSwitch={handleSwitch} />
-        </div>
-
-        {/* Form data */}
-        <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
-
-        {/* Approval chain */}
-        <ApprovalChain
-          layers={layers}
-          totalLayers={total}
-          myLayer={myLayer}
-          curLayer={curLayer}
-          alreadyDone={alreadyDone}
-          subject={data?.submissionData?.subject}
-          submitting={submitting}
-          onApprove={handleApproveClick}
-          onReject={handleRejectClick}
-          readOnly={false}
+    <PageShell>
+      {dialog && (
+        <ConfirmDialog
+          type={dialog}
+          loading={submitting}
+          onConfirm={dialog === "approve" ? handleConfirmApprove : handleConfirmReject}
+          onCancel={() => setDialog(null)}
         />
+      )}
 
-        {/* Footer */}
-        <div style={{ marginTop: 24, textAlign: "center", fontSize: 11, color: C.textMuted, paddingBottom: 32 }}>
-          PMW International Berhad · HR-Forms · Confidential
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <UserBadge userEmail={userEmail} layer={myLayer} total={total} alreadyDone={alreadyDone} onLogout={handleLogout} onSwitch={handleSwitch} />
       </div>
-    </div>
+
+      <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
+
+      <ApprovalChain
+        layers={layers}
+        totalLayers={total}
+        myLayer={myLayer}
+        curLayer={curLayer}
+        alreadyDone={alreadyDone}
+        subject={submissionData?.subject}
+        submitting={submitting}
+        onApprove={handleApproveClick}
+        onReject={handleRejectClick}
+      />
+
+      <PageFooter />
+    </PageShell>
   );
 }
