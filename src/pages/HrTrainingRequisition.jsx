@@ -439,63 +439,172 @@ function FormPage() {
             </span>
           </div>
 
-          {/* Logo + company */}
-          <div style={{ display: "flex", alignItems: "stretch", borderBottom: `1px solid ${bdr}` }}>
-            <div style={{ padding: "14px 20px", borderRight: `1px solid ${bdr}`, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 130, background: cardAlt }}>
-              <img src={logo} alt="Company Logo" style={{ maxHeight: 40, objectFit: "contain" }} />
-            </div>
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px" }}>
-              <span style={{ fontWeight: 700, fontSize: 15, color: txt, letterSpacing: "0.5px", fontFamily: "'DM Sans', sans-serif" }}>
-                PMW INTERNATIONAL BERHAD
-              </span>
-            </div>
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <tbody>
+              {/* Row 1 — logo + company name (full width right cell) */}
+              <tr style={{ borderBottom: `1px solid ${bdr}` }}>
+                {/* Logo — rowSpan 3 to cover: company row + document title + form title */}
+                <td
+                  rowSpan={1}
+                  style={{
+                    width: 160, minWidth: 160,
+                    borderRight: `1px solid ${bdr}`,
+                    background: cardAlt,
+                    padding: "14px 20px",
+                    textAlign: "center",
+                    verticalAlign: "middle",
+                  }}
+                >
+                  <img src={logo} alt="Company Logo" style={{ maxHeight: 40, objectFit: "contain" }} />
+                </td>
+                {/* Company name spans the two right columns */}
+                <td
+                  colSpan={2}
+                  style={{
+                    padding: "14px 20px",
+                    fontWeight: 700, fontSize: 15,
+                    color: txt,
+                    letterSpacing: "0.5px",
+                    fontFamily: "'DM Sans', sans-serif",
+                    verticalAlign: "middle",
+                  }}
+                >
+                  PMW INTERNATIONAL BERHAD
+                </td>
+              </tr>
 
-          {/* Metadata rows */}
-          {[
-            { label: "DOCUMENT TITLE", value: "ISO 9001, ISO 14001 & ISO 45001" },
-            { label: "FORM TITLE",     value: "TRAINING REQUISITION FORM" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", borderBottom: `1px solid ${bdr}` }}>
-              <div style={{ width: 160, minWidth: 160, padding: "9px 14px", borderRight: `1px solid ${bdr}`, fontWeight: 600, color: txtMuted, background: cardAlt, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", fontFamily: "'DM Sans', sans-serif" }}>
-                {label}
-              </div>
-              <div style={{ padding: "9px 14px", color: txt, flex: 1, display: "flex", alignItems: "center", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-                {value}
-              </div>
-            </div>
-          ))}
+              {/* Row 2 — Document Title */}
+              <tr style={{ borderBottom: `1px solid ${bdr}` }}>
+                <td style={{
+                  width: 160, minWidth: 160,
+                  borderRight: `1px solid ${bdr}`,
+                  background: cardAlt,
+                  padding: "9px 14px",
+                  fontWeight: 600, fontSize: 11,
+                  color: txtMuted,
+                  textTransform: "uppercase", letterSpacing: "0.04em",
+                  fontFamily: "'DM Sans', sans-serif",
+                  verticalAlign: "middle",
+                }}>
+                  Document Title
+                </td>
+                <td style={{
+                  padding: "9px 14px",
+                  color: txt, fontSize: 13,
+                  fontFamily: "'DM Sans', sans-serif",
+                  verticalAlign: "middle",
+                }}>
+                  ISO 9001, ISO 14001 &amp; ISO 45001
+                </td>
+              </tr>
 
-          {/* Companies */}
-          <div style={{ display: "flex", borderBottom: `1px solid ${bdr}` }}>
-            <div style={{ width: 160, minWidth: 160, padding: "9px 14px", borderRight: `1px solid ${bdr}`, fontWeight: 600, color: txtMuted, background: cardAlt, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", fontFamily: "'DM Sans', sans-serif" }}>
-              COMPANIES
-            </div>
-            <div style={{ padding: "10px 14px", color: txt, flex: 1, lineHeight: 1.9, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-              PMW INDUSTRIES SDN BHD<br />
-              PMW CONCRETE INDUSTRIES SDN BHD<br />
-              PMW LIGHTING INDUSTRIES SDN BHD<br />
-              WINABUMI SDN BHD
-            </div>
-          </div>
+              {/* Row 3 — Form Title */}
+              <tr style={{ borderBottom: `1px solid ${bdr}` }}>
+                <td style={{
+                  borderRight: `1px solid ${bdr}`,
+                  background: cardAlt,
+                  padding: "9px 14px",
+                  fontWeight: 600, fontSize: 11,
+                  color: txtMuted,
+                  textTransform: "uppercase", letterSpacing: "0.04em",
+                  fontFamily: "'DM Sans', sans-serif",
+                  verticalAlign: "middle",
+                }}>
+                  Form Title
+                </td>
+                <td style={{
+                  padding: "9px 14px",
+                  color: txt, fontSize: 13,
+                  fontFamily: "'DM Sans', sans-serif",
+                  verticalAlign: "middle",
+                }}>
+                  TRAINING REQUISITION FORM
+                </td>
+              </tr>
 
-          {/* Document no / version */}
-          <div style={{ display: "flex" }}>
-            <div style={{ width: 160, minWidth: 160, padding: "9px 14px", borderRight: `1px solid ${bdr}`, fontWeight: 600, color: txtMuted, background: cardAlt, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", fontFamily: "'DM Sans', sans-serif" }}>
-              DOCUMENT NO.
-            </div>
-            <div style={{ flex: 1, display: "flex" }}>
-              <div style={{ flex: 2, padding: "9px 12px", borderRight: `1px solid ${bdr}`, fontFamily: "monospace", fontSize: 13, color: txt, display: "flex", alignItems: "center" }}>
-                {FORM_ID}
-              </div>
-              <div style={{ flex: 1, padding: "9px 12px", borderRight: `1px solid ${bdr}`, fontWeight: 600, background: cardAlt, color: txtMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", fontFamily: "'DM Sans', sans-serif" }}>
-                VERSION
-              </div>
-              <div style={{ flex: 1, padding: "9px 12px", textAlign: "center", color: txt, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-                {FORM_VERSION}
-              </div>
-            </div>
-          </div>
+              {/* Companies row */}
+              <tr style={{ borderBottom: `1px solid ${bdr}` }}>
+                <td style={{
+                  width: 160, minWidth: 160,
+                  borderRight: `1px solid ${bdr}`,
+                  background: cardAlt,
+                  padding: "9px 14px",
+                  fontWeight: 600, fontSize: 11,
+                  color: txtMuted,
+                  textTransform: "uppercase", letterSpacing: "0.04em",
+                  fontFamily: "'DM Sans', sans-serif",
+                  verticalAlign: "middle",
+                }}>
+                  Companies
+                </td>
+                <td
+                  colSpan={2}
+                  style={{
+                    padding: "10px 14px",
+                    color: txt, fontSize: 13,
+                    lineHeight: 1.9,
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  PMW INDUSTRIES SDN BHD<br />
+                  PMW CONCRETE INDUSTRIES SDN BHD<br />
+                  PMW LIGHTING INDUSTRIES SDN BHD<br />
+                  WINABUMI SDN BHD
+                </td>
+              </tr>
+
+              {/* Document No / Version row */}
+              <tr>
+                <td style={{
+                  width: 160, minWidth: 160,
+                  borderRight: `1px solid ${bdr}`,
+                  background: cardAlt,
+                  padding: "9px 14px",
+                  fontWeight: 600, fontSize: 11,
+                  color: txtMuted,
+                  textTransform: "uppercase", letterSpacing: "0.04em",
+                  fontFamily: "'DM Sans', sans-serif",
+                  verticalAlign: "middle",
+                }}>
+                  Document No.
+                </td>
+                <td style={{
+                  borderRight: `1px solid ${bdr}`,
+                  padding: "9px 12px",
+                  fontFamily: "monospace", fontSize: 13,
+                  color: txt, verticalAlign: "middle",
+                  width: "40%",
+                }}>
+                  {FORM_ID}
+                </td>
+                <td style={{ padding: 0, verticalAlign: "middle" }}>
+                  <div style={{ display: "flex", height: "100%" }}>
+                    <div style={{
+                      padding: "9px 12px",
+                      borderRight: `1px solid ${bdr}`,
+                      fontWeight: 600, background: cardAlt,
+                      color: txtMuted, fontSize: 11,
+                      textTransform: "uppercase", letterSpacing: "0.04em",
+                      display: "flex", alignItems: "center",
+                      fontFamily: "'DM Sans', sans-serif",
+                      whiteSpace: "nowrap",
+                    }}>
+                      Version
+                    </div>
+                    <div style={{
+                      padding: "9px 12px",
+                      textAlign: "center",
+                      color: txt, fontSize: 13,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>
+                      {FORM_VERSION}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* ── Survey / Success ──────────────────────────────────────── */}
