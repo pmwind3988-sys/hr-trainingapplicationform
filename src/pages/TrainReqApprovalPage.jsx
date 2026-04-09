@@ -887,8 +887,8 @@ function ApprovalBox({ layer, totalLayers, layerData, isMine, onApprove, onRejec
   const badgeText = actioned
     ? (rejected ? "Rejected" : "Approved")
     : skipped ? "Not Required"
-    : isMine ? "Action Required"
-    : "Pending";
+      : isMine ? "Action Required"
+        : "Pending";
 
   return (
     <div style={{
@@ -934,11 +934,36 @@ function ApprovalBox({ layer, totalLayers, layerData, isMine, onApprove, onRejec
       )}
 
       {/* Signature badge (approved only) */}
-      {actioned && !rejected && (
+      {/* Signature display (approved only) */}
+      {actioned && !rejected && layerData?.signature && (
         <div>
-          <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Signature</div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, color: C.textMuted }}>
-            <span style={{ color: C.green }}>✓</span> Signature on file
+          <div style={{
+            fontSize: 10,
+            color: C.textMuted,
+            marginBottom: 4,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            fontWeight: 600
+          }}>
+            Signature
+          </div>
+
+          <div style={{
+            padding: 10,
+            background: C.white,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            display: "inline-block"
+          }}>
+            <img
+              src={layerData.signature}
+              alt={`Layer ${layer} signature`}
+              style={{
+                maxWidth: 260,
+                maxHeight: 80,
+                display: "block"
+              }}
+            />
           </div>
         </div>
       )}
