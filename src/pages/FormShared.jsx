@@ -307,6 +307,14 @@ export function FormFooter({ isDark }) {
   );
 }
 
+export function useSurveyEvent(survey, event, handler) {
+  React.useEffect(() => {
+    if (!survey || !handler) return;
+    event.add(handler);
+    return () => event.remove(handler);
+  }, [survey, event, handler]);
+}
+
 // ── SignatureDialog ───────────────────────────────────────────────────────────
 export function SignatureDialog({ open, onConfirm, onCancel, existingData, title = "Signature" }) {
   const canvasRef = useRef(null);

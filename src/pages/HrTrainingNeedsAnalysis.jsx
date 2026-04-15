@@ -10,6 +10,8 @@ import {
   PageHeader, DocumentHeader, BackButton, StatusMessages, FormFooter,
   mountSignatureQuestion, useSignatureCleanup,
 } from "./FormShared";
+import { matrixToHtmlTable } from "../utils/form2MatrixToHtml";
+import { useFormAuth } from "../formAuthContext";
 
 const FORM_ID = "2";
 const FORM_VERSION = "1.0";
@@ -75,6 +77,7 @@ export default function FormPage() {
   const signatureRoots = useRef([]);
   const navigate = useNavigate();
   const { bg } = useDarkTokens(isDark);
+  const { userEmail } = useFormAuth();
 
   const survey = useMemo(() => new Model(surveyJson), []);
 
@@ -107,17 +110,39 @@ export default function FormPage() {
   return () => clearInterval(interval);
 }, [survey]);
 
+
+
   const onComplete = useCallback(async (sender) => {
-    setSubmitStatus("loading");
-    try {
-      const res = await fetch(process.env.REACT_APP_FLOW_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...sender.data, hod_date: new Date().toISOString(), formId: FORM_ID, formVersion: FORM_VERSION, submittedAt: new Date().toISOString(), baseUrl: window.location.origin }),
-      });
-      setSubmitStatus(res.ok ? "success" : "error");
-    } catch { setSubmitStatus("error"); }
-  }, []);
+  setSubmitStatus("loading");
+  try {
+    const data = sender.data;
+
+    // Convert matrix rows → HTML table string
+    const trainingNeedsHtml = matrixToHtmlTable(data.training_needs_employee ?? []);
+
+    const payload = {
+      ...data,
+      year: String(data.year),
+      training_needs_html: trainingNeedsHtml,   // ← rich text column value
+      hod_date: new Date().toISOString(),
+      formId: FORM_ID,
+      formVersion: FORM_VERSION,
+      submittedAt: new Date().toISOString(),
+      baseUrl: window.location.origin,
+      ...(userEmail && { submittedByEmail: userEmail }),
+    };
+
+    const res = await fetch(process.env.REACT_APP_FLOW_2, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    setSubmitStatus(res.ok ? "success" : "error");
+  } catch {
+    setSubmitStatus("error");
+  }
+}, []);
   survey.onComplete.add(onComplete);
 
   return (
@@ -131,7 +156,6 @@ export default function FormPage() {
           <SuccessScreen onBack={() => navigate("/")} />
         ) : (
           <>
-            <BackButton onClick={() => navigate("/")} isDark={isDark} />
             <DocumentHeader formTitle={FORM_TITLE} formVersion={FORM_VERSION} formId={FORM_ID} isDark={isDark} />
             <Survey model={survey} />
             <StatusMessages status={submitStatus} />
