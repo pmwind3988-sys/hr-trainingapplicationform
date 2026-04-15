@@ -93,6 +93,9 @@ export default function FormPage() {
   const navigate = useNavigate();
   const { bg } = useDarkTokens(isDark);
   const { userEmail } = useFormAuth();
+  const lastDataRef = useRef(null);  // ← add this ref
+  const raw = lastDataRef.current;
+  const costs = raw.cost_details || {};
 
   const survey = useMemo(() => new Model(surveyJson), []);
 
@@ -107,7 +110,11 @@ export default function FormPage() {
   survey.showCompletedPage = false;
   useSignatureCleanup(signatureRoots);
 
-  // Submit
+  const onCompleting = useCallback((sender, options) => {
+    // Save data snapshot before SurveyJS clears it
+    lastDataRef.current = { ...sender.data };
+  }, []);
+
   const onComplete = useCallback(async (sender) => {
     setSubmitStatus("loading");
     try {
@@ -115,9 +122,22 @@ export default function FormPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...sender.data,
-          startDate: toUTC(sender.data.startDate),
-          endDate: toUTC(sender.data.endDate),
+          ...raw,
+          startDate: toUTC(lastDataRef.current.startDate),
+          endDate: toUTC(lastDataRef.current.endDate),
+          // ↓ override cost_details with parsed floats
+          cost_details: {
+            training_fee: parseFloat(costs.training_fee) || 0,
+            mileage: parseFloat(costs.mileage) || 0,
+            meal_allowance: parseFloat(costs.meal_allowance) || 0,
+            accommodation: parseFloat(costs.accommodation) || 0,
+            other_cost: parseFloat(costs.other_cost) || 0,
+          },
+          total_cost: (parseFloat(costs.training_fee) || 0) +
+            (parseFloat(costs.mileage) || 0) +
+            (parseFloat(costs.meal_allowance) || 0) +
+            (parseFloat(costs.accommodation) || 0) +
+            (parseFloat(costs.other_cost) || 0),
           formId: FORM_ID,
           formVersion: FORM_VERSION,
           submittedAt: new Date().toISOString(),
@@ -125,11 +145,25 @@ export default function FormPage() {
           ...(userEmail && { submittedByEmail: userEmail }),
         }),
       });
-      setSubmitStatus(res.ok ? "success" : "error");
+
+      if (res.ok) {
+        setSubmitStatus("success");
+      } else {
+        // Restore data and restart survey so user can edit and retry
+        setSubmitStatus("error");
+        sender.clear(false, false);   // clear completion state, keep data
+        sender.start();               // go back to editable state
+        Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
+      }
     } catch {
       setSubmitStatus("error");
+      sender.clear(false, false);
+      sender.start();
+      Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
     }
-  }, [userEmail]); // ← add userEmail here
+  }, [userEmail]);
+
+  useSurveyEvent(survey, survey.onCompleting, onCompleting);   // ← register new event
   useSurveyEvent(survey, survey.onComplete, onComplete);
   useSurveyEvent(survey, survey.onAfterRenderQuestion, onAfterRenderQuestion);
 
