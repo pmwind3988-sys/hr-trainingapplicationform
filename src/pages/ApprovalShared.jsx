@@ -372,14 +372,12 @@ export function AlreadySignedPage({ userEmail, signedEmail, layer, signedAt, act
   );
 }
 
+// AFTER:
 export function WrongTenantScreen({ userEmail, onLogout, onSwitch }) {
   return (
     <Screen icon="🚫" title="Access Restricted" color={C.red}
       message={<>This portal is only accessible to users within the organisation. The account <strong>{userEmail}</strong> is not part of the authorised tenant.</>}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <Btn onClick={onSwitch} variant="primary">🔄 Sign in with a different account</Btn>
-        <Btn onClick={onLogout} variant="ghost">🚪 Sign out</Btn>
-      </div>
+      <Btn onClick={onLogout} variant="ghost">🚪 Sign out</Btn>
     </Screen>
   );
 }
@@ -435,7 +433,6 @@ export function WaitingForLayersScreen({ userLayer, totalLayers, layers, userEma
           </div>
           <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 20 }}>This page is read-only. You'll be notified when it's your turn.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Btn onClick={onSwitch} variant="primary">🔄 Switch account</Btn>
             <Btn onClick={onLogout} variant="ghost">🚪 Sign out</Btn>
           </div>
         </div>

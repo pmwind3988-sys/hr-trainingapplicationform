@@ -254,7 +254,11 @@ export default function TrainNeedsApprovePage() {
   if (!isAuthenticated) return <ApprovalLoginPrompt onLogin={handleLogin} loading={loginLoading} />;
   if (status === "idle" || status === "loading") return <PageSkeleton userEmail={userEmail} />;
   if (status === "wrong_tenant") return <WrongTenantScreen userEmail={userEmail} onLogout={handleLogout} onSwitch={handleSwitch} />;
-  if (status === "unauthorized") return <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red} />;
+  if (status === "unauthorized") return (
+    <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red}>
+      <Btn onClick={handleLogout} variant="ghost">🚪 Sign out</Btn>
+    </Screen>
+  );
   if (status === "error") return <Screen icon="❌" title="Something Went Wrong" message={errorMsg} color={C.red}><Btn onClick={() => { setStatus("idle"); window.location.reload(); }} variant="primary">Try again</Btn></Screen>;
   if (status === "submit_error") return <Screen icon="❌" title="Submission Failed" message={errorMsg} color={C.red}><Btn onClick={() => retryFnRef.current?.()} variant="primary">Try again</Btn></Screen>;
   if (status === "done") return <SuccessPage userEmail={userEmail} layer={data?.userLayer} signedAt={signResult?.signedAt} action={signResult?.action} />;

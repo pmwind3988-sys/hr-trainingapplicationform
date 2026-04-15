@@ -323,7 +323,11 @@ export default function TrainReqApprovePage() {
 
   // ── Error / access states ─────────────────────────────────────────────────
   if (status === "wrong_tenant") return <WrongTenantScreen userEmail={userEmail} onLogout={handleLogout} onSwitch={handleSwitch} />;
-  if (status === "unauthorized") return <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red} />;
+   if (status === "unauthorized") return (
+      <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red}>
+        <Btn onClick={handleLogout} variant="ghost">🚪 Sign out</Btn>
+      </Screen>
+    );
   if (status === "unassigned") return (
     <Screen icon="⚠️" title="No Subject Assigned" color={C.amber}
       message="This training application has not been assigned a subject (Managerial / Non-Managerial). Please contact HR to update the form before approval can proceed." />
