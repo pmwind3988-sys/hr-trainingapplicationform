@@ -1,5 +1,8 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ROUTES } from "./routes";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
 import HrTrainReqPage from "./pages/HrTrainingRequisition";
@@ -9,15 +12,24 @@ import TrainReqApprovePage from "./pages/TrainReqApprovalPage";
 import TrainNeedsApprovePage from "./pages/TrainNeedsApprovalPage";
 import FormAuthWrapper from "./formAuthWrapper";
 
+function TitleManager() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const match = ROUTES.find(r => pathname.startsWith(r.path) && r.path !== "/")
+                  ?? ROUTES.find(r => r.path === "/");
+    document.title = match?.title ?? "PMW HR Forms";
+  }, [pathname]);
+
+  return null;
+}
+
 function App() {
   return (
     <Router>
+      <TitleManager />
       <Routes>
-
-        {/* ── Dashboard (M365 login enforced inside HomePage) ── */}
         <Route path="/" element={<HomePage />} />
-
-        {/* ── Public forms with optional login prompt ── */}
         <Route
           path="/hr-training-requisition-form"
           element={
@@ -42,15 +54,9 @@ function App() {
             </FormAuthWrapper>
           }
         />
-
-        {/* ── Approval pages (M365 login enforced inside each page) ── */}
-        {/* Accessed via emailed link: /approve-hr1?token=<guid> */}
         <Route path="/approve-hr1" element={<TrainReqApprovePage />} />
         <Route path="/approve-hr2" element={<TrainNeedsApprovePage />} />
-
-        {/* ── Catch-all → home ── */}
         <Route path="*" element={<Navigate to="/" replace />} />
-
       </Routes>
     </Router>
   );

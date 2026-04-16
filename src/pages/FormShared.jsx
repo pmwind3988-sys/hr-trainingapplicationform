@@ -68,6 +68,13 @@ export function useBodyTheme(isDark) {
   }, [isDark]);
 };
 
+export function usePageTitle(title) {
+  useEffect(() => {
+    document.title = title;
+    return () => { document.title = "PMW HR Forms"; }; // reset on unmount
+  }, [title]);
+}
+
 // ── PageHeader ────────────────────────────────────────────────────────────────
 export function PageHeader({ isDark, onToggleDark, title }) {
   return (
