@@ -1,12 +1,13 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-import HomePage               from "./pages/HomePage";
-import HrTrainReqPage         from "./pages/HrTrainingRequisition";
-import HrTrainNeedsIdenPage   from "./pages/HrTrainingNeedsAnalysis";
-import TrainReqApprovePage    from "./pages/TrainReqApprovalPage";
-import TrainNeedsApprovePage  from "./pages/TrainNeedsApprovalPage";
-import FormAuthWrapper        from "./formAuthWrapper";
+import HomePage from "./pages/HomePage";
+import HrTrainReqPage from "./pages/HrTrainingRequisition";
+import HrTrainNeedsIdenPage from "./pages/HrTrainingNeedsAnalysis";
+import HrTrainEvaluationPage from "./pages/HrTrainingEvaluation";
+import TrainReqApprovePage from "./pages/TrainReqApprovalPage";
+import TrainNeedsApprovePage from "./pages/TrainNeedsApprovalPage";
+import FormAuthWrapper from "./formAuthWrapper";
 
 function App() {
   return (
@@ -30,6 +31,14 @@ function App() {
           element={
             <FormAuthWrapper formTitle="Training Needs Analysis Form">
               <HrTrainNeedsIdenPage />
+            </FormAuthWrapper>
+          }
+        />
+        <Route
+          path="/hr-training-evaluation-form"
+          element={
+            <FormAuthWrapper formTitle="Training Evaluation Form">
+              <HrTrainEvaluationPage />
             </FormAuthWrapper>
           }
         />

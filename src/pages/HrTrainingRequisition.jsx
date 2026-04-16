@@ -94,8 +94,6 @@ export default function FormPage() {
   const { bg } = useDarkTokens(isDark);
   const { userEmail } = useFormAuth();
   const lastDataRef = useRef(null);  // ← add this ref
-  const raw = lastDataRef.current;
-  const costs = raw.cost_details || {};
 
   const survey = useMemo(() => new Model(surveyJson), []);
 
@@ -117,6 +115,11 @@ export default function FormPage() {
 
   const onComplete = useCallback(async (sender) => {
     setSubmitStatus("loading");
+
+    // ✅ Read ref here — it's populated by onCompleting at this point
+    const raw = lastDataRef.current ?? {};
+    const costs = raw.cost_details || {};
+
     try {
       const res = await fetch(process.env.REACT_APP_FLOW_URL, {
         method: "POST",

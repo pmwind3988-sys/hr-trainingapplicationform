@@ -13,6 +13,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { loginRequest } from "../authConfig";
+import logo from "../assets/logo.png";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -57,10 +58,10 @@ function getStoredDecision() {
   try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
 }
 function setStoredDecision(val) {
-  try { localStorage.setItem(STORAGE_KEY, val); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, val); } catch { }
 }
 function clearStoredDecision() {
-  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  try { localStorage.removeItem(STORAGE_KEY); } catch { }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -71,22 +72,22 @@ const fmtDateShort = (v) =>
   v ? new Date(v).toLocaleString("en-MY", { dateStyle: "short" }) : "—";
 
 const FORM_CATALOG = {
-  "1": { label: "Training Requisition",    category: "Training", color: C.purple, pale: C.purplePale },
-  "2": { label: "Training Needs Analysis", category: "Training", color: C.blue,   pale: C.bluePale   },
+  "1": { label: "Training Requisition", category: "Training", color: C.purple, pale: C.purplePale },
+  "2": { label: "Training Needs Analysis", category: "Training", color: C.blue, pale: C.bluePale },
 };
 
 const STATUS_CONFIG = {
-  fullyApproved: { label: "Fully Approved", bg: C.greenPale,  color: C.green,  dot: C.green  },
-  rejected:      { label: "Rejected",       bg: C.redPale,    color: C.red,    dot: C.red    },
-  inProgress:    { label: "In Review",      bg: C.purplePale, color: C.purple, dot: C.purple },
-  pending:       { label: "Pending",        bg: C.amberPale,  color: C.amber,  dot: C.amber  },
+  fullyApproved: { label: "Fully Approved", bg: C.greenPale, color: C.green, dot: C.green },
+  rejected: { label: "Rejected", bg: C.redPale, color: C.red, dot: C.red },
+  inProgress: { label: "In Review", bg: C.purplePale, color: C.purple, dot: C.purple },
+  pending: { label: "Pending", bg: C.amberPale, color: C.amber, dot: C.amber },
 };
 
 const getStatus = (s) => {
   const key = (s || "").toLowerCase().replace(/\s+/g, "");
   if (key.includes("fullyapproved") || key === "approved") return STATUS_CONFIG.fullyApproved;
-  if (key.includes("reject"))                               return STATUS_CONFIG.rejected;
-  if (key.includes("progress") || key.includes("review"))  return STATUS_CONFIG.inProgress;
+  if (key.includes("reject")) return STATUS_CONFIG.rejected;
+  if (key.includes("progress") || key.includes("review")) return STATUS_CONFIG.inProgress;
   return STATUS_CONFIG.pending;
 };
 
@@ -152,78 +153,149 @@ function ChoiceScreen({ onLogin, onGuest }) {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh", background: C.offWhite,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: C.offWhite,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
       <style>{G}</style>
-      <div style={{
-        background: C.white, borderRadius: 20, padding: "48px 40px",
-        maxWidth: 440, width: "100%", textAlign: "center",
-        boxShadow: C.shadowMd, border: `1px solid ${C.border}`,
-        animation: "fadeUp 0.3s ease",
-      }}>
-        {/* Logo mark */}
-        <div style={{
-          width: 60, height: 60, borderRadius: 14, margin: "0 auto 22px",
-          background: `linear-gradient(135deg, ${C.purple}, ${C.purpleLight})`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-            <path d="M4 8h18M4 13h13M4 18h9" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
+
+      <div
+        style={{
+          background: C.white,
+          borderRadius: 20,
+          padding: "48px 40px",
+          maxWidth: 440,
+          width: "100%",
+          textAlign: "center",
+          boxShadow: C.shadowMd,
+          border: `1px solid ${C.border}`,
+          animation: "fadeUp 0.3s ease",
+        }}
+      >
+        {/* Logo (natural, no background) */}
+        <div
+          style={{
+            margin: "0 auto 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={logo}
+            alt="logo"
+            style={{
+              maxWidth: 140,
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
         </div>
 
-        <h1 style={{
-          fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 400,
-          color: C.textPrimary, marginBottom: 8,
-        }}>
+        <h1
+          style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: 24,
+            fontWeight: 400,
+            color: C.textPrimary,
+            marginBottom: 8,
+          }}
+        >
           PMW HR Forms
         </h1>
-        <p style={{ color: C.textSecond, fontSize: 13, lineHeight: 1.7, marginBottom: 30 }}>
-          Sign in with your Microsoft 365 account to view your submission history and approval status — or continue as a guest.
+
+        <p
+          style={{
+            color: C.textSecond,
+            fontSize: 13,
+            lineHeight: 1.7,
+            marginBottom: 30,
+          }}
+        >
+          Sign in with your Microsoft 365 account to view your submission history
+          and approval status — or continue as a guest.
         </p>
 
         {/* Sign in */}
         <button
           onClick={onLogin}
           style={{
-            width: "100%", padding: "13px", borderRadius: 10,
-            background: C.purple, color: C.white, border: "none",
-            fontSize: 14, fontWeight: 500, cursor: "pointer",
-            fontFamily: "inherit", marginBottom: 10,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+            width: "100%",
+            padding: "13px",
+            borderRadius: 10,
+            background: C.purple,
+            color: C.white,
+            border: "none",
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            marginBottom: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
             transition: "background 0.15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.background = C.purpleLight}
-          onMouseLeave={e => e.currentTarget.style.background = C.purple}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.background = C.purpleLight)
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.background = C.purple)
+          }
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="1"   y="1"   width="7.5" height="7.5" fill="#F25022"/>
-            <rect x="9.5" y="1"   width="7.5" height="7.5" fill="#7FBA00"/>
-            <rect x="1"   y="9.5" width="7.5" height="7.5" fill="#00A4EF"/>
-            <rect x="9.5" y="9.5" width="7.5" height="7.5" fill="#FFB900"/>
+            <rect x="1" y="1" width="7.5" height="7.5" fill="#F25022" />
+            <rect x="9.5" y="1" width="7.5" height="7.5" fill="#7FBA00" />
+            <rect x="1" y="9.5" width="7.5" height="7.5" fill="#00A4EF" />
+            <rect x="9.5" y="9.5" width="7.5" height="7.5" fill="#FFB900" />
           </svg>
           Sign in with Microsoft 365
         </button>
 
         {/* Remember choice */}
-        <label style={{
-          display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-          fontSize: 12, color: C.textSecond, marginBottom: 14,
-          userSelect: "none", justifyContent: "center",
-        }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            fontSize: 12,
+            color: C.textSecond,
+            marginBottom: 14,
+            userSelect: "none",
+            justifyContent: "center",
+          }}
+        >
           <input
             type="checkbox"
             checked={remember}
-            onChange={e => setRemember(e.target.checked)}
-            style={{ width: 14, height: 14, cursor: "pointer", accentColor: C.purple }}
+            onChange={(e) => setRemember(e.target.checked)}
+            style={{
+              width: 14,
+              height: 14,
+              cursor: "pointer",
+              accentColor: C.purple,
+            }}
           />
           Remember my choice on this device
         </label>
 
         {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+          }}
+        >
           <div style={{ flex: 1, height: 1, background: C.border }} />
           <span style={{ fontSize: 11, color: C.textMuted }}>or</span>
           <div style={{ flex: 1, height: 1, background: C.border }} />
@@ -233,20 +305,37 @@ function ChoiceScreen({ onLogin, onGuest }) {
         <button
           onClick={handleGuest}
           style={{
-            width: "100%", padding: "11px", borderRadius: 10,
-            background: "none", color: C.textSecond,
+            width: "100%",
+            padding: "11px",
+            borderRadius: 10,
+            background: "none",
+            color: C.textSecond,
             border: `1px solid ${C.border}`,
-            fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+            fontSize: 13,
+            cursor: "pointer",
+            fontFamily: "inherit",
             transition: "border-color 0.15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = C.borderDark}
-          onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.borderColor = C.borderDark)
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.borderColor = C.border)
+          }
         >
           Continue as guest →
         </button>
 
-        <p style={{ fontSize: 11, color: C.textMuted, marginTop: 18, lineHeight: 1.6 }}>
-          Guests can browse but cannot view submission history.<br />
+        <p
+          style={{
+            fontSize: 11,
+            color: C.textMuted,
+            marginTop: 18,
+            lineHeight: 1.6,
+          }}
+        >
+          Guests can browse but cannot view submission history.
+          <br />
           Only PMW organisation accounts are permitted to sign in.
         </p>
       </div>
@@ -272,7 +361,7 @@ function GuestLanding({ onLogin, onForgetChoice }) {
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M2 4h9M2 6.5h6.5M2 9h4.5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M2 4h9M2 6.5h6.5M2 9h4.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
           </div>
           <span style={{ fontSize: 15, fontWeight: 600, color: C.textPrimary }}>PMW HR Forms</span>
@@ -327,10 +416,10 @@ function GuestLanding({ onLogin, onForgetChoice }) {
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1"   y="1"   width="6.5" height="6.5" fill="#F25022"/>
-              <rect x="8.5" y="1"   width="6.5" height="6.5" fill="#7FBA00"/>
-              <rect x="1"   y="8.5" width="6.5" height="6.5" fill="#00A4EF"/>
-              <rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#FFB900"/>
+              <rect x="1" y="1" width="6.5" height="6.5" fill="#F25022" />
+              <rect x="8.5" y="1" width="6.5" height="6.5" fill="#7FBA00" />
+              <rect x="1" y="8.5" width="6.5" height="6.5" fill="#00A4EF" />
+              <rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#FFB900" />
             </svg>
             Sign in with Microsoft 365
           </button>
@@ -369,7 +458,7 @@ function Header({ userEmail, onLogout, onSwitch }) {
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 4h10M2 7h7M2 10h5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M2 4h10M2 7h7M2 10h5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
         <div>
@@ -400,7 +489,7 @@ function Header({ userEmail, onLogout, onSwitch }) {
           </span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
             style={{ transform: menuOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>
-            <path d="M2 4l4 4 4-4" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 4l4 4 4-4" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
@@ -440,18 +529,18 @@ function Header({ userEmail, onLogout, onSwitch }) {
 
 // ── Stats row ─────────────────────────────────────────────────────────────────
 function StatsRow({ submissions }) {
-  const total    = submissions.length;
-  const approved = submissions.filter(s =>  getStatus(s.formStatus).label.includes("Approved")).length;
-  const pending  = submissions.filter(s => ["Pending", "In Review"].includes(getStatus(s.formStatus).label)).length;
-  const rejected = submissions.filter(s =>  getStatus(s.formStatus).label === "Rejected").length;
+  const total = submissions.length;
+  const approved = submissions.filter(s => getStatus(s.formStatus).label.includes("Approved")).length;
+  const pending = submissions.filter(s => ["Pending", "In Review"].includes(getStatus(s.formStatus).label)).length;
+  const rejected = submissions.filter(s => getStatus(s.formStatus).label === "Rejected").length;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
       {[
-        { label: "Total Submitted",      value: total,    color: C.purple },
-        { label: "Approved",             value: approved, color: C.green  },
-        { label: "Pending / In Review",  value: pending,  color: C.amber  },
-        { label: "Rejected",             value: rejected, color: C.red    },
+        { label: "Total Submitted", value: total, color: C.purple },
+        { label: "Approved", value: approved, color: C.green },
+        { label: "Pending / In Review", value: pending, color: C.amber },
+        { label: "Rejected", value: rejected, color: C.red },
       ].map(({ label, value, color }) => (
         <div key={label} style={{
           background: C.white, border: `1px solid ${C.border}`, borderRadius: 12,
@@ -479,8 +568,8 @@ function Toolbar({ search, setSearch, category, setCategory, sortBy, setSortBy, 
       <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
           style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-          <circle cx="6" cy="6" r="4.5" stroke={C.textMuted} strokeWidth="1.2"/>
-          <path d="M9.5 9.5L13 13" stroke={C.textMuted} strokeWidth="1.2" strokeLinecap="round"/>
+          <circle cx="6" cy="6" r="4.5" stroke={C.textMuted} strokeWidth="1.2" />
+          <path d="M9.5 9.5L13 13" stroke={C.textMuted} strokeWidth="1.2" strokeLinecap="round" />
         </svg>
         <input
           style={{ ...inputStyle, paddingLeft: 32, width: "100%" }}
@@ -532,7 +621,7 @@ function SubmissionRow({ item, onView }) {
       <StatusBadge status={item.formStatus} />
       <div style={{ textAlign: "right" }}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M6 12l4-4-4-4" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 12l4-4-4-4" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
     </div>
@@ -622,8 +711,8 @@ function DetailModal({ item, onClose }) {
           {(item.hod_signature || item.applicantSignature) && (
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
               {[
-                { label: "HOD Signature",       src: item.hod_signature },
-                { label: "Applicant Signature",  src: item.applicantSignature },
+                { label: "HOD Signature", src: item.hod_signature },
+                { label: "Applicant Signature", src: item.applicantSignature },
               ].filter(s => s.src).map(({ label, src }) => (
                 <div key={label}>
                   <div style={{ fontSize: 10, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5, fontWeight: 600 }}>{label}</div>
@@ -649,7 +738,7 @@ function DashboardSkeleton({ userEmail }) {
   return (
     <div style={{ minHeight: "100vh", background: C.offWhite }}>
       <style>{G}</style>
-      <Header userEmail={userEmail} onLogout={() => {}} onSwitch={() => {}} />
+      <Header userEmail={userEmail} onLogout={() => { }} onSwitch={() => { }} />
       <div style={{ maxWidth: 920, margin: "0 auto", padding: "28px 24px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
           {[...Array(4)].map((_, i) => (
@@ -714,12 +803,12 @@ export default function HomePage() {
   // "wrong_tenant" = wrong org
   const [pageState, setPageState] = useState("checking");
   const [submissions, setSubmissions] = useState([]);
-  const [errorMsg, setErrorMsg]     = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const [search,   setSearch]   = useState("");
+  const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [sortBy,   setSortBy]   = useState("date_desc");
+  const [sortBy, setSortBy] = useState("date_desc");
 
   const userEmail = accounts[0]?.username || "";
 
@@ -811,9 +900,9 @@ export default function HomePage() {
     }
     list.sort((a, b) => {
       if (sortBy === "date_desc") return new Date(b.submittedAt) - new Date(a.submittedAt);
-      if (sortBy === "date_asc")  return new Date(a.submittedAt) - new Date(b.submittedAt);
-      if (sortBy === "status")    return (a.formStatus || "").localeCompare(b.formStatus || "");
-      if (sortBy === "form")      return (a.formId || "").localeCompare(b.formId || "");
+      if (sortBy === "date_asc") return new Date(a.submittedAt) - new Date(b.submittedAt);
+      if (sortBy === "status") return (a.formStatus || "").localeCompare(b.formStatus || "");
+      if (sortBy === "form") return (a.formId || "").localeCompare(b.formId || "");
       return 0;
     });
     return list;
@@ -890,8 +979,8 @@ export default function HomePage() {
         {processed.length === 0
           ? <EmptyState hasFilters={hasFilters} />
           : Object.entries(grouped).map(([cat, items]) => (
-              <CategoryGroup key={cat} category={cat} items={items} onView={setSelectedItem} />
-            ))
+            <CategoryGroup key={cat} category={cat} items={items} onView={setSelectedItem} />
+          ))
         }
         <div style={{ marginTop: 24, textAlign: "center", fontSize: 11, color: C.textMuted, paddingBottom: 40 }}>
           PMW International Berhad · HR Forms · Confidential
