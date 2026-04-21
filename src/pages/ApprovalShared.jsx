@@ -509,7 +509,6 @@ export function UserBadge({ userEmail, layer, total, alreadyDone, onLogout, onSw
             <div style={{ fontSize: 13, color: C.textPrimary, fontWeight: 500, wordBreak: "break-all" }}>{userEmail}</div>
           </div>
           {[
-            { icon: "🔄", label: "Switch account", action: onSwitch, color: C.textPrimary, bordered: true },
             { icon: "🚪", label: "Sign out", action: onLogout, color: C.red, bordered: false },
           ].map(({ icon, label, action, color, bordered }) => (
             <button

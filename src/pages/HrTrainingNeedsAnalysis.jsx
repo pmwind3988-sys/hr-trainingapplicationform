@@ -8,10 +8,10 @@ import SuccessScreen from "../utils/successScreen";
 import {
   globalStyles, useDarkTokens, useBodyTheme,   // ← add useBodyTheme
   PageHeader, DocumentHeader, BackButton, StatusMessages, FormFooter,
-  mountSignatureQuestion, useSignatureCleanup,
+  mountSignatureQuestion, useSignatureCleanup, useSurveyEvent
 } from "./FormShared";
 import { matrixToHtmlTable } from "../utils/form2MatrixToHtml";
-import { useFormAuth } from "../formAuthContext";
+import { useFormAuth, LoggedInBanner, GuestBanner } from "../formAuthWrapper";
 
 const FORM_ID = "2";
 const FORM_VERSION = "1.0";
@@ -75,9 +75,10 @@ export default function FormPage() {
   const [isDark, setIsDark] = useState(false);
   useBodyTheme(isDark);
   const signatureRoots = useRef([]);
+  const lastDataRef = useRef(null);
   const navigate = useNavigate();
   const { bg } = useDarkTokens(isDark);
-  const { userEmail } = useFormAuth();
+  const { userEmail, authState, onLogin, onLogout } = useFormAuth();
 
   const survey = useMemo(() => new Model(surveyJson), []);
 
@@ -91,64 +92,84 @@ export default function FormPage() {
   useSignatureCleanup(signatureRoots);
 
   React.useEffect(() => {
-  const interval = setInterval(() => {
-    const now = new Date();
+    const interval = setInterval(() => {
+      const now = new Date();
 
-    const formatted = now.toLocaleString("en-MY", {
-      timeZone: "Asia/Kuala_Lumpur",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true // 24-hour format (optional)
-    });
+      const formatted = now.toLocaleString("en-MY", {
+        timeZone: "Asia/Kuala_Lumpur",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true // 24-hour format (optional)
+      });
 
-    survey.setValue("hod_date", formatted);
-  }, 1000);
+      survey.setValue("hod_date", formatted);
+    }, 1000);
 
-  return () => clearInterval(interval);
-}, [survey]);
+    return () => clearInterval(interval);
+  }, [survey]);
 
 
+  const onCompleting = useCallback((sender) => {
+    lastDataRef.current = { ...sender.data };
+  }, []);
 
   const onComplete = useCallback(async (sender) => {
-  setSubmitStatus("loading");
-  try {
-    const data = sender.data;
+    setSubmitStatus("loading");
+    try {
+      const data = lastDataRef.current ?? {};
+      const trainingNeedsHtml = matrixToHtmlTable(data.training_needs_employee ?? []);
 
-    // Convert matrix rows → HTML table string
-    const trainingNeedsHtml = matrixToHtmlTable(data.training_needs_employee ?? []);
+      const payload = {
+        ...data,
+        year: String(data.year),
+        training_needs_html: trainingNeedsHtml,
+        hod_date: new Date().toISOString(),
+        formId: FORM_ID,
+        formVersion: FORM_VERSION,
+        submittedAt: new Date().toISOString(),
+        baseUrl: window.location.origin,
+        submittedByEmail: userEmail ?? "",
+      };
 
-    const payload = {
-      ...data,
-      year: String(data.year),
-      training_needs_html: trainingNeedsHtml,   // ← rich text column value
-      hod_date: new Date().toISOString(),
-      formId: FORM_ID,
-      formVersion: FORM_VERSION,
-      submittedAt: new Date().toISOString(),
-      baseUrl: window.location.origin,
-      ...(userEmail && { submittedByEmail: userEmail }),
-    };
+      const res = await fetch(process.env.REACT_APP_FLOW_2, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const res = await fetch(process.env.REACT_APP_FLOW_2, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      if (res.ok) {
+        setSubmitStatus("success");
+      } else {
+        setSubmitStatus("error");
+        sender.clear(false, false);
+        sender.start();
+        Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
+      }
+    } catch {
+      setSubmitStatus("error");
+      sender.clear(false, false);
+      sender.start();
+      Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
+    }
+  }, [userEmail]);
 
-    setSubmitStatus(res.ok ? "success" : "error");
-  } catch {
-    setSubmitStatus("error");
-  }
-}, []);
-  survey.onComplete.add(onComplete);
+  useSurveyEvent(survey, survey.onCompleting, onCompleting);
+  useSurveyEvent(survey, survey.onComplete, onComplete);
+  useSurveyEvent(survey, survey.onAfterRenderQuestion, onAfterRenderQuestion);
 
   return (
     <div style={{ minHeight: "100vh", background: bg, transition: "background 0.3s" }}>
       <style>{globalStyles}</style>
       <PageHeader isDark={isDark} onToggleDark={() => setIsDark(d => !d)} title={FORM_TITLE} />
+
+      {/* 2. Auth banner — rendered HERE, after PageHeader, so it's never above it.
+                      The banner itself is sticky at top:56px so it stays pinned while scrolling. */}
+      {authState === "loggedin" && <LoggedInBanner userEmail={userEmail} onLogout={onLogout} />}
+      {authState === "guest" && <GuestBanner onLogin={onLogin} />}
+
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px", animation: "fadeUp 0.3s ease" }}>
 

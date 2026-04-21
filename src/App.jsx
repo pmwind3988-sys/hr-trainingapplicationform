@@ -10,6 +10,7 @@ import HrTrainNeedsIdenPage from "./pages/HrTrainingNeedsAnalysis";
 import HrTrainEvaluationPage from "./pages/HrTrainingEvaluation";
 import TrainReqApprovePage from "./pages/TrainReqApprovalPage";
 import TrainNeedsApprovePage from "./pages/TrainNeedsApprovalPage";
+import TrainEvaluateApprovePage from "./pages/TrainEvaluateApprovalPage";
 import FormAuthWrapper from "./formAuthWrapper";
 
 function TitleManager() {
@@ -39,7 +40,7 @@ function App() {
           }
         />
         <Route
-          path="/hr-training-needs-identification-form"
+          path="/hr-training-needs-analysis-form"
           element={
             <FormAuthWrapper formTitle="Training Needs Analysis Form">
               <HrTrainNeedsIdenPage />
@@ -56,6 +57,7 @@ function App() {
         />
         <Route path="/approve-hr1" element={<TrainReqApprovePage />} />
         <Route path="/approve-hr2" element={<TrainNeedsApprovePage />} />
+        <Route path="/approve-hr3" element={<TrainEvaluateApprovePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

@@ -8,9 +8,10 @@ import SuccessScreen from "../utils/successScreen";
 import {
   globalStyles, useDarkTokens, useBodyTheme,
   PageHeader, DocumentHeader, StatusMessages, FormFooter,
-  mountSignatureQuestion, useSignatureCleanup,
+  mountSignatureQuestion, useSignatureCleanup, useSurveyEvent
 } from "./FormShared";
-import { useFormAuth } from "../formAuthContext";
+import { ratingMatrixToHtml } from "../utils/ratingMatrixToHtml";
+import { useFormAuth, LoggedInBanner, GuestBanner } from "../formAuthWrapper";
 
 const FORM_ID = "3";
 const FORM_VERSION = "1.0";
@@ -260,9 +261,10 @@ export default function FormPage() {
   const [isDark, setIsDark] = useState(false);
   useBodyTheme(isDark);
   const signatureRoots = useRef([]);
+  const lastDataRef = useRef(null);
   const navigate = useNavigate();
   const { bg } = useDarkTokens(isDark);
-  const { userEmail } = useFormAuth();
+  const { userEmail, authState, onLogin, onLogout } = useFormAuth();
 
   const survey = useMemo(() => new Model(surveyJson), []);
 
@@ -296,21 +298,43 @@ export default function FormPage() {
   survey.showCompletedPage = false;
   useSignatureCleanup(signatureRoots);
 
+  const onCompleting = useCallback((sender) => {
+    lastDataRef.current = { ...sender.data };
+  }, []);
+
   // Submit handler — reads sender.data directly like Form 2, no lastDataRef needed
   const onComplete = useCallback(
     async (sender) => {
       setSubmitStatus("loading");
       try {
-        const data = sender.data;
+        const data = lastDataRef.current ?? {};
+
+        // Row label mappings to make the HTML table readable
+        const contentLabels = {
+          facilities: "Facilities & Comfort",
+          time_allocated: "Time Sufficiency",
+          assessment_methods: "Fairness of Assessment",
+          questions_opportunity: "Opportunity for Q&A",
+          interaction: "Engagement & Interaction"
+        };
+
+        const effectivenessLabels = {
+          objectives_met: "Objectives clearly stated/met",
+          relevant_to_job: "Relevant to job role",
+          improve_skills: "Improved knowledge/skills",
+          appropriate_level: "Appropriate learning level"
+        };
 
         const payload = {
           ...data,
+          contents_html: ratingMatrixToHtml(data.course_contents_rating, contentLabels),
+          effectiveness_html: ratingMatrixToHtml(data.effectiveness_rating, effectivenessLabels),
           acknowledgement_date: new Date().toISOString(),
           formId: FORM_ID,
           formVersion: FORM_VERSION,
           submittedAt: new Date().toISOString(),
           baseUrl: window.location.origin,
-          ...(userEmail && { submittedByEmail: userEmail }),
+          submittedByEmail: userEmail ?? "",
         };
 
         const res = await fetch(process.env.REACT_APP_FLOW_3, {
@@ -319,14 +343,26 @@ export default function FormPage() {
           body: JSON.stringify(payload),
         });
 
-        setSubmitStatus(res.ok ? "success" : "error");
+        if (res.ok) {
+          setSubmitStatus("success");
+        } else {
+          setSubmitStatus("error");
+          sender.clear(false, false);
+          sender.start();
+          Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
+        }
       } catch {
         setSubmitStatus("error");
+        sender.clear(false, false);
+        sender.start();
+        Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
       }
     },
     [userEmail]
   );
-  survey.onComplete.add(onComplete);
+  useSurveyEvent(survey, survey.onCompleting, onCompleting);   // ← add this
+  useSurveyEvent(survey, survey.onComplete, onComplete);
+  useSurveyEvent(survey, survey.onAfterRenderQuestion, onAfterRenderQuestion);
 
   return (
     <div style={{ minHeight: "100vh", background: bg, transition: "background 0.3s" }}>
@@ -336,6 +372,11 @@ export default function FormPage() {
         onToggleDark={() => setIsDark((d) => !d)}
         title={FORM_TITLE}
       />
+
+      {/* 2. Auth banner — rendered HERE, after PageHeader, so it's never above it.
+                            The banner itself is sticky at top:56px so it stays pinned while scrolling. */}
+      {authState === "loggedin" && <LoggedInBanner userEmail={userEmail} onLogout={onLogout} />}
+      {authState === "guest" && <GuestBanner onLogin={onLogin} />}
 
       <div
         style={{

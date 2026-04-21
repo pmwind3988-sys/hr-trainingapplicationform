@@ -6,11 +6,11 @@ import { LayeredDarkPanelless, LayeredLightPanelless } from "survey-core/themes"
 import "survey-core/survey-core.min.css";
 import SuccessScreen from "../utils/successScreen";
 import {
-  globalStyles, useDarkTokens, useBodyTheme,   // ← add useBodyTheme
-  PageHeader, DocumentHeader, BackButton, StatusMessages, FormFooter,
+  globalStyles, useDarkTokens, useBodyTheme,
+  PageHeader, DocumentHeader, StatusMessages, FormFooter,
   mountSignatureQuestion, useSignatureCleanup, useSurveyEvent,
 } from "./FormShared";
-import { useFormAuth } from "../formAuthContext";
+import { useFormAuth, LoggedInBanner, GuestBanner } from "../formAuthWrapper";
 
 const FORM_ID = "1";
 const FORM_VERSION = "1.0";
@@ -20,7 +20,6 @@ const toUTC = (localDateTime) => {
   if (!localDateTime) return null;
   return new Date(localDateTime).toISOString();
 };
-
 
 const surveyJson = {
   checkErrorsMode: "onValueChanged",
@@ -55,11 +54,11 @@ const surveyJson = {
           {
             type: "multipletext", name: "cost_details", titleLocation: "hidden", colCount: 1,
             items: [
-              { name: "training_fee", title: "Training Fee (RM)", inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
-              { name: "mileage", title: "Mileage / Transportation Fees (RM)", inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
-              { name: "meal_allowance", title: "Meals Allowance X days of training (RM)", inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
-              { name: "accommodation", title: "Accommodation (RM)", inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
-              { name: "other_cost", title: "Other Cost (Toll / Parking) (RM)", inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
+              { name: "training_fee",   title: "Training Fee (RM)",                        inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
+              { name: "mileage",        title: "Mileage / Transportation Fees (RM)",        inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
+              { name: "meal_allowance", title: "Meals Allowance X days of training (RM)",   inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
+              { name: "accommodation",  title: "Accommodation (RM)",                        inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
+              { name: "other_cost",     title: "Other Cost (Toll / Parking) (RM)",          inputType: "number", step: 0.01, validators: [{ type: "numeric", text: "Enter a valid amount (e.g. 10.50)" }] },
             ]
           },
           {
@@ -92,15 +91,13 @@ export default function FormPage() {
   const signatureRoots = useRef([]);
   const navigate = useNavigate();
   const { bg } = useDarkTokens(isDark);
-  const { userEmail } = useFormAuth();
-  const lastDataRef = useRef(null);  // ← add this ref
+  const { userEmail, authState, onLogin, onLogout } = useFormAuth();
+  const lastDataRef = useRef(null);
 
   const survey = useMemo(() => new Model(surveyJson), []);
 
-  // Apply SurveyJS theme on dark toggle
   React.useEffect(() => { survey.applyTheme(isDark ? LayeredDarkPanelless : LayeredLightPanelless); }, [isDark, survey]);
 
-  // Mount custom signature widget
   const onAfterRenderQuestion = useCallback((_, options) => {
     mountSignatureQuestion(options, signatureRoots, "Applicant Signature");
   }, []);
@@ -108,15 +105,12 @@ export default function FormPage() {
   survey.showCompletedPage = false;
   useSignatureCleanup(signatureRoots);
 
-  const onCompleting = useCallback((sender, options) => {
-    // Save data snapshot before SurveyJS clears it
+  const onCompleting = useCallback((sender) => {
     lastDataRef.current = { ...sender.data };
   }, []);
 
   const onComplete = useCallback(async (sender) => {
     setSubmitStatus("loading");
-
-    // ✅ Read ref here — it's populated by onCompleting at this point
     const raw = lastDataRef.current ?? {};
     const costs = raw.cost_details || {};
 
@@ -127,35 +121,33 @@ export default function FormPage() {
         body: JSON.stringify({
           ...raw,
           startDate: toUTC(lastDataRef.current.startDate),
-          endDate: toUTC(lastDataRef.current.endDate),
-          // ↓ override cost_details with parsed floats
+          endDate:   toUTC(lastDataRef.current.endDate),
           cost_details: {
-            training_fee: parseFloat(costs.training_fee) || 0,
-            mileage: parseFloat(costs.mileage) || 0,
+            training_fee:   parseFloat(costs.training_fee)   || 0,
+            mileage:        parseFloat(costs.mileage)        || 0,
             meal_allowance: parseFloat(costs.meal_allowance) || 0,
-            accommodation: parseFloat(costs.accommodation) || 0,
-            other_cost: parseFloat(costs.other_cost) || 0,
+            accommodation:  parseFloat(costs.accommodation)  || 0,
+            other_cost:     parseFloat(costs.other_cost)     || 0,
           },
-          total_cost: (parseFloat(costs.training_fee) || 0) +
-            (parseFloat(costs.mileage) || 0) +
-            (parseFloat(costs.meal_allowance) || 0) +
-            (parseFloat(costs.accommodation) || 0) +
-            (parseFloat(costs.other_cost) || 0),
-          formId: FORM_ID,
-          formVersion: FORM_VERSION,
-          submittedAt: new Date().toISOString(),
-          baseUrl: window.location.origin,
-          ...(userEmail && { submittedByEmail: userEmail }),
+          total_cost: (parseFloat(costs.training_fee)   || 0) +
+                      (parseFloat(costs.mileage)        || 0) +
+                      (parseFloat(costs.meal_allowance) || 0) +
+                      (parseFloat(costs.accommodation)  || 0) +
+                      (parseFloat(costs.other_cost)     || 0),
+          formId:           FORM_ID,
+          formVersion:      FORM_VERSION,
+          submittedAt:      new Date().toISOString(),
+          baseUrl:          window.location.origin,
+          submittedByEmail: userEmail ?? "",
         }),
       });
 
       if (res.ok) {
         setSubmitStatus("success");
       } else {
-        // Restore data and restart survey so user can edit and retry
         setSubmitStatus("error");
-        sender.clear(false, false);   // clear completion state, keep data
-        sender.start();               // go back to editable state
+        sender.clear(false, false);
+        sender.start();
         Object.entries(lastDataRef.current).forEach(([k, v]) => sender.setValue(k, v));
       }
     } catch {
@@ -166,17 +158,24 @@ export default function FormPage() {
     }
   }, [userEmail]);
 
-  useSurveyEvent(survey, survey.onCompleting, onCompleting);   // ← register new event
+  useSurveyEvent(survey, survey.onCompleting, onCompleting);
   useSurveyEvent(survey, survey.onComplete, onComplete);
   useSurveyEvent(survey, survey.onAfterRenderQuestion, onAfterRenderQuestion);
 
   return (
     <div style={{ minHeight: "100vh", background: bg, transition: "background 0.3s" }}>
       <style>{globalStyles}</style>
+
+      {/* 1. Sticky top bar (z-index 50) */}
       <PageHeader isDark={isDark} onToggleDark={() => setIsDark(d => !d)} title={FORM_TITLE} />
 
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px", animation: "fadeUp 0.3s ease" }}>
+      {/* 2. Auth banner — rendered HERE, after PageHeader, so it's never above it.
+              The banner itself is sticky at top:56px so it stays pinned while scrolling. */}
+      {authState === "loggedin" && <LoggedInBanner userEmail={userEmail} onLogout={onLogout} />}
+      {authState === "guest"    && <GuestBanner onLogin={onLogin} />}
 
+      {/* 3. Page body */}
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px", animation: "fadeUp 0.3s ease" }}>
         {submitStatus === "success" ? (
           <SuccessScreen onBack={() => navigate("/")} />
         ) : (
@@ -186,7 +185,6 @@ export default function FormPage() {
             <StatusMessages status={submitStatus} />
           </>
         )}
-
         <FormFooter isDark={isDark} />
       </div>
     </div>
