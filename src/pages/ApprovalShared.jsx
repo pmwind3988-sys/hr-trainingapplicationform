@@ -441,6 +441,8 @@ export function WaitingForLayersScreen({ userLayer, totalLayers, layers, userEma
   );
 }
 
+
+
 // ── User badge (dropdown) ─────────────────────────────────────────────────────
 export function UserBadge({ userEmail, layer, total, alreadyDone, onLogout, onSwitch }) {
   const [open, setOpen] = useState(false);
@@ -1128,4 +1130,170 @@ export function useApprovalPage({ fetchUrl, signUrl }) {
     load, submitAction,
     handleApproveClick, handleRejectClick,
   };
+}
+
+// ── PrintPreviewButton (generic — driven by schema) ───────────────────────────
+export function PrintPreviewButton({ formTitle, formId, formVersion, submittedAt, formStatus, sections, layers, totalLayers, subject, customLayerTitles }) {
+  const printedAt = new Date().toLocaleString("en-MY", { dateStyle: "medium", timeStyle: "short" });
+  const isRejected = formStatus === "rejected";
+  const statusLabel = isRejected ? "Rejected" : "Fully Approved";
+  const statusColor = isRejected ? "#721c24" : "#155724";
+
+  const renderField = (f) => {
+    if (!f) return "";
+    if (f.type === "signature") {
+      if (!f.value) return "";
+      return `<tr>
+        <td class="lb">${f.label}</td>
+        <td colspan="3">
+          <img src="${f.value}" alt="${f.label}" style="max-height:60px;border:1px solid #ddd;padding:4px;background:#fafafa;display:block">
+          <div style="font-size:10px;color:#666;margin-top:4px">Digitally signed on ${fmtDate(submittedAt)}</div>
+        </td>
+      </tr>`;
+    }
+    if (f.type === "html") {
+      if (!f.value) return "";
+      return `<tr>
+        <td class="lb" style="vertical-align:top">${f.label}</td>
+        <td colspan="3" style="padding:0">
+          <div style="overflow-x:auto;font-size:11px;padding:8px 10px">${f.value}</div>
+        </td>
+      </tr>`;
+    }
+    if (f.full) {
+      return `<tr>
+        <td class="lb">${f.label}</td>
+        <td colspan="3" ${f.highlight ? 'style="font-weight:bold;background:#f0f0f0;font-size:13px"' : ""}>${f.value || "—"}</td>
+      </tr>`;
+    }
+    return null; // paired — handled in renderSection
+  };
+
+  const renderSection = (section, sectionIndex) => {
+    if (!section) return "";
+    const allFull = section.fields.filter(f => f.full || f.type === "signature" || f.type === "html");
+    const paired  = section.fields.filter(f => !f.full && f.type !== "signature" && f.type !== "html");
+    const pairs   = [];
+    for (let i = 0; i < paired.length; i += 2) pairs.push([paired[i], paired[i + 1]]);
+
+    return `
+      <div class="sh">Section ${sectionIndex + 1} — ${section.title}</div>
+      <table class="ft">
+        ${pairs.map(([a, b]) => `<tr>
+          <td class="lb">${a.label}</td>
+          <td ${a.highlight ? 'style="font-weight:bold"' : ""}>${a.value || "—"}</td>
+          ${b
+            ? `<td class="lb">${b.label}</td><td ${b.highlight ? 'style="font-weight:bold"' : ""}>${b.value || "—"}</td>`
+            : `<td></td><td></td>`}
+        </tr>`).join("")}
+        ${allFull.map(f => renderField(f)).join("")}
+      </table>`;
+  };
+
+  const approvalSectionNumber = sections.length + 1;
+
+  const docHTML = `
+    <div class="doc-title">PMW International Berhad</div>
+    <div class="doc-subtitle">${formTitle} &nbsp;|&nbsp; Confidential &nbsp;|&nbsp; HR Department</div>
+    <div class="doc-meta">
+      <span>Form ID: <strong>#${formId || "—"}</strong></span>
+      <span>Version: <strong>${formVersion || "—"}</strong></span>
+      <span>Submitted: <strong>${fmtDate(submittedAt)}</strong></span>
+      <span>Status: <strong style="color:${statusColor}">${statusLabel}</strong></span>
+    </div>
+
+    ${sections.map((s, i) => renderSection(s, i)).join("")}
+
+    <div class="sh">Section ${approvalSectionNumber} — Approval Chain</div>
+    <table class="at">
+      <thead><tr>
+        <th style="width:5%">Layer</th>
+        <th style="width:22%">Role</th>
+        <th style="width:23%">Approver</th>
+        <th style="width:18%">Date / Time</th>
+        <th style="width:10%">Decision</th>
+        <th style="width:22%">Signature</th>
+      </tr></thead>
+      <tbody>
+        ${layers.map((l, i) => {
+          if (!l) return "";
+          const isRej = layerIsRejected(l);
+          const badge = isRej
+            ? `<span class="ba br">Rejected</span>`
+            : l.status === "Signed"
+              ? `<span class="ba bg">Approved</span>`
+              : `<span class="ba by">Pending</span>`;
+          const sig = l.signature
+            ? `<img src="${l.signature}" alt="L${i+1} sig" style="max-height:44px;border:1px solid #ddd;padding:2px;background:#fafafa">`
+            : "—";
+          const { roleTitle } = getLayerMeta(subject, i + 1, customLayerTitles);
+          return `
+            <tr>
+              <td style="text-align:center;font-weight:bold">${i + 1}</td>
+              <td>${roleTitle}</td>
+              <td>${l.email || "—"}</td>
+              <td>${fmtDate(l.signedAt)}</td>
+              <td>${badge}</td>
+              <td>${sig}</td>
+            </tr>
+            ${isRej && l.rejectionReason
+              ? `<tr><td></td><td colspan="5" style="font-size:10px;color:#721c24;font-style:italic;padding:4px 10px">Reason: ${l.rejectionReason}</td></tr>`
+              : ""}`;
+        }).join("")}
+      </tbody>
+    </table>
+
+    <div style="margin-top:20px;padding:10px;background:#f8f8f8;border:1px solid #ccc;font-size:11px;color:#333">
+      <strong>This document is computer-generated.</strong> All approval decisions and signatures have been digitally recorded in the HR Forms system. Any alterations render this document invalid.
+    </div>
+    <div class="footer">
+      <span>PMW International Berhad &nbsp;·&nbsp; HR-Forms &nbsp;·&nbsp; Confidential</span>
+      <span>Form ID: #${formId || "—"} &nbsp;·&nbsp; Printed: ${printedAt}</span>
+    </div>
+  `;
+
+  const css = `
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#000;padding:32px 40px}
+    .doc-title{text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;border-bottom:2px solid #000;padding-bottom:8px}
+    .doc-subtitle{text-align:center;font-size:11px;color:#444;margin-bottom:20px}
+    .doc-meta{display:flex;justify-content:space-between;font-size:11px;color:#444;margin-bottom:20px;border-bottom:1px solid #ccc;padding-bottom:10px;flex-wrap:wrap;gap:6px}
+    .sh{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:0.06em;background:#f0f0f0;border:1px solid #ccc;border-bottom:none;padding:5px 10px;margin-top:16px}
+    table.ft{width:100%;border-collapse:collapse;font-size:12px}
+    table.ft td{border:1px solid #ccc;padding:6px 10px;vertical-align:top}
+    td.lb{width:28%;background:#fafafa;font-weight:bold;color:#333;font-size:11px}
+    table.at{width:100%;border-collapse:collapse;font-size:11px}
+    table.at th{background:#1a1a1a;color:#fff;padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.05em}
+    table.at td{border:1px solid #ccc;padding:7px 10px;vertical-align:middle}
+    table.at tr:nth-child(even) td{background:#fafafa}
+    .ba{display:inline-block;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:0.04em}
+    .bg{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+    .br{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+    .by{background:#fff3cd;color:#856404;border:1px solid #ffeeba}
+    .footer{margin-top:24px;border-top:1px solid #ccc;padding-top:8px;display:flex;justify-content:space-between;font-size:10px;color:#666}
+    @media print{body{padding:20px 24px}@page{margin:15mm}}
+  `;
+
+  const handlePrint = () => {
+    const w = window.open("", "_blank", "width=960,height=700");
+    w.document.write(`<!DOCTYPE html><html><head><title>${formTitle} — #${formId}</title><style>${css}</style></head><body>${docHTML}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 300);
+  };
+
+  return (
+    <button
+      onClick={handlePrint}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 8,
+        padding: "9px 18px", border: `1px solid ${C.border}`, borderRadius: 8,
+        background: C.white, color: C.textPrimary, fontSize: 13,
+        cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+        boxShadow: C.shadow,
+      }}
+    >
+      🖨 Print / Save as PDF
+    </button>
+  );
 }

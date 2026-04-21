@@ -28,10 +28,10 @@ import {
   SuccessPage, AlreadySignedPage, WrongTenantScreen, WaitingForLayersScreen,
   PageShell, PageFooter,
   UserBadge, StatusOverlayModal, ConfirmDialog,
-  ApprovalChain, TerminalBanner,
+  ApprovalChain, TerminalBanner, PrintPreviewButton
 } from "./ApprovalShared";
 
-const EVAL_LAYER_TITLES  = ["Immediate Superior / HOD"];
+const EVAL_LAYER_TITLES = ["Immediate Superior / HOD"];
 const EVAL_SECTION_LABELS = ["Evaluated By"];
 
 // ─── Intro / context dialog ───────────────────────────────────────────────────
@@ -88,8 +88,8 @@ function IntroDialog({ onProceed, isApprovalOpen, targetDateStr, submittedAtStr,
         {/* Submission context grid */}
         <div style={{ padding: "16px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 20px", borderBottom: `1px solid ${C.border}` }}>
           {[
-            { label: "Employee",       value: employeeName },
-            { label: "Training",       value: trainingTitle },
+            { label: "Employee", value: employeeName },
+            { label: "Training", value: trainingTitle },
             { label: "Form Submitted", value: submittedAtStr },
             { label: "Evaluation Due", value: targetDateStr, highlight: true },
           ].filter(r => r.value).map(({ label, value, highlight }) => (
@@ -114,7 +114,7 @@ function IntroDialog({ onProceed, isApprovalOpen, targetDateStr, submittedAtStr,
               transition: "background 0.2s",
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.5 3.5L13 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.5 3.5L13 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             I Understand — Proceed to Evaluate
           </button>
         </div>
@@ -233,14 +233,14 @@ function ReadOnlyForm({ data, formId, formVersion }) {
       <div style={{ padding: "20px 22px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
         <SectionDivider number={1} title="Employee Details" />
         <Field label="Employee Name" value={data.employeeName} />
-        <Field label="Employee ID"   value={data.employeeID} />
-        <Field label="Position"      value={data.position} />
-        <Field label="Department"    value={data.department} />
+        <Field label="Employee ID" value={data.employeeID} />
+        <Field label="Position" value={data.position} />
+        <Field label="Department" value={data.department} />
 
         <SectionDivider number={2} title="Training Details" />
-        <Field label="Training Title"  value={data.trainingTitle} />
+        <Field label="Training Title" value={data.trainingTitle} />
         <Field label="Date & Duration" value={data.dateDuration} />
-        <Field label="Training Type"   value={data.trainingType} />
+        <Field label="Training Type" value={data.trainingType} />
         <div style={{ gridColumn: "1 / -1" }}>
           <Field label="Training Objective" value={data.trainingObjective} />
         </div>
@@ -293,10 +293,10 @@ function ReadOnlyForm({ data, formId, formVersion }) {
 // ── Part II editable fields ───────────────────────────────────────────────────
 function PartIIFields({ values, onChange, errors }) {
   const perfRows = [
-    { key: "objective_met",        label: "Training objective met" },
-    { key: "improve_skills",       label: "Improve on required skills" },
-    { key: "productivity_increase",label: "The employee's productivity level increase" },
-    { key: "quality_improved",     label: "I agree that overall quality of employee has improved" },
+    { key: "objective_met", label: "Training objective met" },
+    { key: "improve_skills", label: "Improve on required skills" },
+    { key: "productivity_increase", label: "The employee's productivity level increase" },
+    { key: "quality_improved", label: "I agree that overall quality of employee has improved" },
   ];
 
   return (
@@ -411,19 +411,19 @@ function validatePartII(values) {
   const perfKeys = ["objective_met", "improve_skills", "productivity_increase", "quality_improved"];
   const perf = values.performance_indication || {};
   if (perfKeys.some((k) => !perf[k])) errors.performance_indication = true;
-  if (!values.hod_comments?.trim())   errors.hod_comments = true;
-  if (!values.hod_name?.trim())       errors.hod_name = true;
-  if (!values.hod_position?.trim())   errors.hod_position = true;
+  if (!values.hod_comments?.trim()) errors.hod_comments = true;
+  if (!values.hod_name?.trim()) errors.hod_name = true;
+  if (!values.hod_position?.trim()) errors.hod_position = true;
   return errors;
 }
 
 // ── Performance indication HTML for payload ───────────────────────────────────
 function buildPerformanceHtml(perfData = {}) {
   const rows = [
-    { key: "objective_met",         label: "Training objective met" },
-    { key: "improve_skills",        label: "Improve on required skills" },
+    { key: "objective_met", label: "Training objective met" },
+    { key: "improve_skills", label: "Improve on required skills" },
     { key: "productivity_increase", label: "The employee's productivity level increase" },
-    { key: "quality_improved",      label: "I agree that overall quality of employee has improved" },
+    { key: "quality_improved", label: "I agree that overall quality of employee has improved" },
   ];
   return `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:13px;">
     <thead><tr style="background:#f3f4f6;">
@@ -432,25 +432,25 @@ function buildPerformanceHtml(perfData = {}) {
       <th style="width:60px;text-align:center;">No</th>
     </tr></thead>
     <tbody>${rows.map(({ key, label }, i) => {
-      const v = perfData[key];
-      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9fafb"};">
+    const v = perfData[key];
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9fafb"};">
         <td style="padding:8px 12px;">${label}</td>
         <td style="text-align:center;">${v === "yes" ? "✓" : ""}</td>
-        <td style="text-align:center;">${v === "no"  ? "✓" : ""}</td>
+        <td style="text-align:center;">${v === "no" ? "✓" : ""}</td>
       </tr>`;
-    }).join("")}</tbody>
+  }).join("")}</tbody>
   </table>`;
 }
 
 // ── Load & action hook ────────────────────────────────────────────────────────
 function useEvalApprovalPage({ fetchUrl, signUrl }) {
-  const [status,      setStatus]      = useState("idle");
-  const [data,        setData]        = useState(null);
-  const [signResult,  setSignResult]  = useState(null);
-  const [errorMsg,    setErrorMsg]    = useState("");
-  const [dialog,      setDialog]      = useState(null);   // "approve" only
-  const [pendingSig,  setPendingSig]  = useState(null);
-  const [submitting,  setSubmitting]  = useState(false);
+  const [status, setStatus] = useState("idle");
+  const [data, setData] = useState(null);
+  const [signResult, setSignResult] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [dialog, setDialog] = useState(null);   // "approve" only
+  const [pendingSig, setPendingSig] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
   const [showIntroDialog, setShowIntroDialog] = useState(true);
   const retryFnRef = useRef(null);
@@ -473,10 +473,10 @@ function useEvalApprovalPage({ fetchUrl, signUrl }) {
       const payload = d.body ?? d;
 
       if (payload.alreadySigned) { setData(payload); setStatus("already_signed"); return; }
-      if (!payload.authorized)   { setStatus("unauthorized"); setErrorMsg(payload.message || "You are not authorised."); return; }
+      if (!payload.authorized) { setStatus("unauthorized"); setErrorMsg(payload.message || "You are not authorised."); return; }
 
-      const total      = parseInt(payload.totalLayers) || 0;
-      const layers     = buildLayers(payload, total);
+      const total = parseInt(payload.totalLayers) || 0;
+      const layers = buildLayers(payload, total);
       const formStatus = deriveFormStatus(layers, payload.formStatus);
       const isTerminal = formStatus === "rejected" || formStatus === "fullyApproved";
 
@@ -499,19 +499,19 @@ function useEvalApprovalPage({ fetchUrl, signUrl }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            token:                      String(token),
-            userEmail:                  String(userEmail),
-            userLayer:                  String(userLayer),
-            signature:                  String(signature),
-            signedAt:                   String(signedAt),
-            action:                     "approved",
-            formID:                     String(formId || ""),
-            submissionID:               String(submissionID || ""),
-            performance_indication:     partIIValues.performance_indication,
+            token: String(token),
+            userEmail: String(userEmail),
+            userLayer: String(userLayer),
+            signature: String(signature),
+            signedAt: String(signedAt),
+            action: "approved",
+            formID: String(formId || ""),
+            submissionID: String(submissionID || ""),
+            performance_indication: partIIValues.performance_indication,
             performance_indication_html: buildPerformanceHtml(partIIValues.performance_indication),
-            hod_comments:               partIIValues.hod_comments,
-            hod_name:                   partIIValues.hod_name,
-            hod_position:               partIIValues.hod_position,
+            hod_comments: partIIValues.hod_comments,
+            hod_name: partIIValues.hod_name,
+            hod_position: partIIValues.hod_position,
           }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -563,12 +563,12 @@ export default function TrainEvalApprovePage() {
     partIIValues, partIIErrors, handlePartIIChange,
   } = useEvalApprovalPage({
     fetchUrl: process.env.REACT_APP_FLOW3_FETCH_URL,
-    signUrl:  process.env.REACT_APP_FLOW3_URL_SIGN,
+    signUrl: process.env.REACT_APP_FLOW3_URL_SIGN,
   });
 
   const userEmail = accounts[0]?.username || "";
 
-  const handleLogin  = useCallback(() => { setLoginLoading(true); instance.loginRedirect({ ...loginRequest, prompt: "select_account" }); }, [instance]);
+  const handleLogin = useCallback(() => { setLoginLoading(true); instance.loginRedirect({ ...loginRequest, prompt: "select_account" }); }, [instance]);
   const handleLogout = useCallback(() => { instance.logoutRedirect({ postLogoutRedirectUri: window.location.href }); }, [instance]);
   const handleSwitch = useCallback(() => {
     instance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: window.location.href, onRedirectNavigate: () => false })
@@ -586,14 +586,14 @@ export default function TrainEvalApprovePage() {
     [submitAction, pendingSig, userEmail, data]);
 
   // Derived context values
-  const submissionData  = data?.submissionData ?? {};
-  const isApprovalOpen  = data?.isApprovalOpen === true || data?.isApprovalOpen === "true";
-  const submittedAt     = submissionData.employeeSignedAt ?? data?.submittedAt ?? null;
-  const targetDateStr   = submittedAt ? (() => {
+  const submissionData = data?.submissionData ?? {};
+  const isApprovalOpen = data?.isApprovalOpen === true || data?.isApprovalOpen === "true";
+  const submittedAt = submissionData.employeeSignedAt ?? data?.submittedAt ?? null;
+  const targetDateStr = submittedAt ? (() => {
     const d = new Date(submittedAt); d.setMonth(d.getMonth() + 3);
     return d.toLocaleDateString("en-MY", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "long", day: "numeric" });
   })() : null;
-  const submittedAtStr  = submittedAt
+  const submittedAtStr = submittedAt
     ? new Date(submittedAt).toLocaleDateString("en-MY", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "long", day: "numeric" })
     : null;
 
@@ -608,13 +608,13 @@ export default function TrainEvalApprovePage() {
     );
   }
 
-  if (!isAuthenticated)                   return <ApprovalLoginPrompt onLogin={handleLogin} loading={loginLoading} />;
+  if (!isAuthenticated) return <ApprovalLoginPrompt onLogin={handleLogin} loading={loginLoading} />;
   if (status === "idle" || status === "loading") return <PageSkeleton userEmail={userEmail} />;
-  if (status === "wrong_tenant")          return <WrongTenantScreen userEmail={userEmail} onLogout={handleLogout} onSwitch={handleSwitch} />;
-  if (status === "unauthorized")          return <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red}><Btn onClick={handleLogout} variant="ghost">🚪 Sign out</Btn></Screen>;
-  if (status === "error")                 return <Screen icon="❌" title="Something Went Wrong" message={errorMsg} color={C.red}><Btn onClick={() => { setStatus("idle"); window.location.reload(); }} variant="primary">Try again</Btn></Screen>;
-  if (status === "submit_error")          return <Screen icon="❌" title="Submission Failed" message={errorMsg} color={C.red}><Btn onClick={() => retryFnRef.current?.()} variant="primary">Try again</Btn></Screen>;
-  if (status === "done")                  return <SuccessPage userEmail={userEmail} layer={data?.userLayer} signedAt={signResult?.signedAt} action={signResult?.action} />;
+  if (status === "wrong_tenant") return <WrongTenantScreen userEmail={userEmail} onLogout={handleLogout} onSwitch={handleSwitch} />;
+  if (status === "unauthorized") return <Screen icon="🔒" title="Access Denied" message={errorMsg} color={C.red}><Btn onClick={handleLogout} variant="ghost">🚪 Sign out</Btn></Screen>;
+  if (status === "error") return <Screen icon="❌" title="Something Went Wrong" message={errorMsg} color={C.red}><Btn onClick={() => { setStatus("idle"); window.location.reload(); }} variant="primary">Try again</Btn></Screen>;
+  if (status === "submit_error") return <Screen icon="❌" title="Submission Failed" message={errorMsg} color={C.red}><Btn onClick={() => retryFnRef.current?.()} variant="primary">Try again</Btn></Screen>;
+  if (status === "done") return <SuccessPage userEmail={userEmail} layer={data?.userLayer} signedAt={signResult?.signedAt} action={signResult?.action} />;
   if (status === "already_signed") {
     const ld = data?.[`l${data?.userLayer}`];
     return <AlreadySignedPage userEmail={userEmail} signedEmail={ld?.email || userEmail} layer={data?.userLayer} signedAt={ld?.signedAt} action={ld?.outcome || ld?.status} rejectionReason={ld?.rejectionReason} />;
@@ -622,16 +622,96 @@ export default function TrainEvalApprovePage() {
   if (!data) return null;
 
   const { formId, formVersion, totalLayers } = data;
-  const total  = parseInt(totalLayers);
+  const total = parseInt(totalLayers);
   const layers = buildLayers(data, total);
 
   // ── Terminal view ──────────────────────────────────────────────────────────
   if (status === "terminal") {
+    const d = submissionData;
+    const overallMap = { excellent: "Excellent", good: "Good", fair: "Fair", poor: "Poor" };
+
+    const printSections = [
+      {
+        title: "Employee Details",
+        fields: [
+          { label: "Employee Name", value: d.employeeName },
+          { label: "Employee ID", value: d.employeeID },
+          { label: "Position", value: d.position },
+          { label: "Department", value: d.department },
+        ],
+      },
+      {
+        title: "Training Details",
+        fields: [
+          { label: "Training Title", value: d.trainingTitle, full: true },
+          { label: "Date & Duration", value: d.dateDuration },
+          { label: "Training Type", value: d.trainingType },
+          { label: "Training Objective", value: d.trainingObjective, full: true },
+        ],
+      },
+      {
+        title: "Contents of the Course",
+        fields: [
+          { label: "Course Evaluation", value: d.evaluationItem, type: "html", full: true },
+          { label: "Overall Rating", value: overallMap[d.overallRating] || d.overallRating },
+        ],
+      },
+      {
+        title: "Effectiveness of the Training",
+        fields: [
+          { label: "Effectiveness Ratings", value: d.effectivenessOfTraining, type: "html", full: true },
+        ],
+      },
+      ...(d.commentsFeedback ? [{
+        title: "Comments / Feedback",
+        fields: [
+          { label: "Comments", value: d.commentsFeedback, full: true },
+        ],
+      }] : []),
+      {
+        title: "Employee Acknowledgement (Part I)",
+        fields: [
+          { label: "Date Signed", value: fmtDate(d.employeeSignedAt) },
+          { label: "Employee Signature", value: d.employeeSignature, type: "signature", full: true },
+        ],
+      },
+      // Part II HOD evaluation — stored in l1 layer data after submission
+      {
+        title: "HOD Evaluation (Part II)",
+        fields: [
+          { label: "Performance Indication", value: data?.l1?.performance_indication_html, type: "html", full: true },
+          { label: "HOD Comments", value: data?.l1?.hod_comments, full: true },
+          { label: "Name", value: data?.l1?.hod_name },
+          { label: "Position", value: data?.l1?.hod_position },
+          { label: "HOD Signature", value: data?.l1?.signature, type: "signature", full: true },
+        ].filter(f => f.value), // skip empty Part II fields if somehow missing
+      },
+    ];
+
     return (
       <PageShell>
-        {showOverlay && <StatusOverlayModal formStatus={data.formStatus} layers={layers} totalLayers={total} onViewDetails={() => setShowOverlay(false)} />}
+        {showOverlay && (
+          <StatusOverlayModal formStatus={data.formStatus} layers={layers} totalLayers={total} onViewDetails={() => setShowOverlay(false)} />
+        )}
         <TerminalBanner formStatus={data.formStatus} showOverlay={showOverlay} onShowOverlay={() => setShowOverlay(true)} />
-        <PartIINoticeBanner isApprovalOpen={isApprovalOpen} targetDateStr={targetDateStr} submittedAtStr={submittedAtStr} employeeName={submissionData.employeeName} trainingTitle={submissionData.trainingTitle} />
+        <PartIINoticeBanner isApprovalOpen={isApprovalOpen} targetDateStr={targetDateStr} submittedAtStr={submittedAtStr} employeeName={d.employeeName} trainingTitle={d.trainingTitle} />
+
+        {/* ── Print button ── */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+          <PrintPreviewButton
+            formTitle="Training Evaluation Form"
+            formId={formId}
+            formVersion={formVersion}
+            submittedAt={d.employeeSignedAt ?? data?.submittedAt}
+            formStatus={data.formStatus}
+            sections={printSections}
+            layers={layers}
+            totalLayers={total}
+            subject={null}
+            customLayerTitles={EVAL_LAYER_TITLES}
+          />
+        </div>
+
         <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
         <ApprovalChain layers={layers} totalLayers={total} subject={null} customLayerTitles={EVAL_LAYER_TITLES} customSectionLabels={EVAL_SECTION_LABELS} readOnly chainSectionNumber={7} />
         <PageFooter />
@@ -639,8 +719,8 @@ export default function TrainEvalApprovePage() {
     );
   }
 
-  const myLayer    = parseInt(data.userLayer);
-  const curLayer   = parseInt(data.currentLayer);
+  const myLayer = parseInt(data.userLayer);
+  const curLayer = parseInt(data.currentLayer);
   const alreadyDone = myLayer < curLayer;
 
   if (myLayer > curLayer) return (

@@ -19,6 +19,7 @@ import {
   ApprovalChain, TerminalBanner,
   // hook
   useApprovalPage,
+  PrintPreviewButton,
 } from "./ApprovalShared";
 
 // ── Blocking M365 Login Prompt ────────────────────────────────────────────────
@@ -368,23 +369,81 @@ export default function TrainReqApprovePage() {
 
   // ── Terminal state ────────────────────────────────────────────────────────
   if (status === "terminal") {
-    return (
-      <PageShell>
-        {showOverlay && (
-          <StatusOverlayModal
-            formStatus={data.formStatus}
-            layers={layers}
-            totalLayers={total}
-            onViewDetails={() => setShowOverlay(false)}
-          />
-        )}
-        <TerminalBanner formStatus={data.formStatus} showOverlay={showOverlay} onShowOverlay={() => setShowOverlay(true)} />
-        <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
-        <ApprovalChain layers={layers} totalLayers={total} subject={submissionData?.subject} readOnly chainSectionNumber={5} />
-        <PageFooter />
-      </PageShell>
-    );
-  }
+  const d = submissionData;
+  const totalCost = [d.trainingFee, d.mileage, d.mealAllowance, d.accommodation, d.otherCost]
+    .reduce((s, v) => s + (parseFloat(v) || 0), 0).toFixed(2);
+
+  const printSections = [
+    {
+      title: "Employee Details",
+      fields: [
+        { label: "Employee Name",     value: d.employeeName },
+        { label: "Position",          value: d.position },
+        { label: "Department",        value: d.department },
+        { label: "Reporting Manager", value: d.reportingManager },
+      ],
+    },
+    {
+      title: "Training Details",
+      fields: [
+        { label: "Course Name",        value: d.courseName,        full: true },
+        { label: "Training Provider",  value: d.trainingProvider,  full: true },
+        { label: "Start Date / Time",  value: fmtDate(d.startDate) },
+        { label: "End Date / Time",    value: fmtDate(d.endDate) },
+        { label: "Venue",              value: d.venue,             full: true },
+        { label: "Training Objective", value: d.trainingObjective, full: true },
+      ],
+    },
+    {
+      title: "Cost Breakdown",
+      fields: [
+        { label: "Training Fee",        value: fmtCurrency(d.trainingFee) },
+        { label: "Mileage / Transport", value: fmtCurrency(d.mileage) },
+        { label: "Meal Allowance",      value: fmtCurrency(d.mealAllowance) },
+        { label: "Accommodation",       value: fmtCurrency(d.accommodation) },
+        { label: "Other Cost",          value: fmtCurrency(d.otherCost) },
+        { label: "HRDC Claimable",      value: isYes(d.hrdcApplication) ? "Yes" : "No" },
+        { label: "Total Cost",          value: `RM ${totalCost}`, highlight: true, full: true },
+      ],
+    },
+    {
+      title: "Applicant Declaration",
+      fields: [
+        { label: "Applicant Name", value: d.applicantName },
+        { label: "Submitted At",   value: fmtDate(d.submittedAt) },
+        { label: "Applicant Signature", value: d.applicantSignature, type: "signature", full: true },
+      ],
+    },
+  ];
+
+  return (
+    <PageShell>
+      {showOverlay && (
+        <StatusOverlayModal formStatus={data.formStatus} layers={layers} totalLayers={total} onViewDetails={() => setShowOverlay(false)} />
+      )}
+      <TerminalBanner formStatus={data.formStatus} showOverlay={showOverlay} onShowOverlay={() => setShowOverlay(true)} />
+
+      {/* ── Print button ── */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <PrintPreviewButton
+          formTitle="Training Requisition Form"
+          formId={formId}
+          formVersion={formVersion}
+          submittedAt={d.submittedAt}
+          formStatus={data.formStatus}
+          sections={printSections}
+          layers={layers}
+          totalLayers={total}
+          subject={d.subject}
+        />
+      </div>
+
+      <ReadOnlyForm data={submissionData} formId={formId} formVersion={formVersion} />
+      <ApprovalChain layers={layers} totalLayers={total} subject={submissionData?.subject} readOnly chainSectionNumber={5} />
+      <PageFooter />
+    </PageShell>
+  );
+}
 
   // ── Normal ready state ────────────────────────────────────────────────────
   const myLayer = parseInt(data.userLayer);
