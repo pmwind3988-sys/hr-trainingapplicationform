@@ -12,13 +12,16 @@ import TrainReqApprovePage from "./pages/TrainReqApprovalPage";
 import TrainNeedsApprovePage from "./pages/TrainNeedsApprovalPage";
 import TrainEvaluateApprovePage from "./pages/TrainEvaluateApprovalPage";
 import FormAuthWrapper from "./formAuthWrapper";
+import AdminFormBuilder from "./pages/AdminFormBuilder";
+import DynamicFormPage from "./pages/DynamicFormPage";
+
 
 function TitleManager() {
   const { pathname } = useLocation();
 
   useEffect(() => {
     const match = ROUTES.find(r => pathname.startsWith(r.path) && r.path !== "/")
-                  ?? ROUTES.find(r => r.path === "/");
+      ?? ROUTES.find(r => r.path === "/");
     document.title = match?.title ?? "PMW HR Forms";
   }, [pathname]);
 
@@ -58,6 +61,9 @@ function App() {
         <Route path="/approve-hr1" element={<TrainReqApprovePage />} />
         <Route path="/approve-hr2" element={<TrainNeedsApprovePage />} />
         <Route path="/approve-hr3" element={<TrainEvaluateApprovePage />} />
+        <Route path="/admin/builder" element={<AdminFormBuilder />} />
+        <Route path="/admin/builder/:formTitle" element={<AdminFormBuilder />} />
+        <Route path="/forms/:slug" element={<DynamicFormPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

@@ -4,8 +4,12 @@ import App from "./App";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { msalConfig } from "./authConfig";
+import { registerDynamicMatrix } from "./utils/DynamicMatrix";
 
 const msalInstance = new PublicClientApplication(msalConfig);
+registerDynamicMatrix();
+
+window.__msalInstance = msalInstance;
 
 function renderApp() {
   const root = ReactDOM.createRoot(document.getElementById("root"));

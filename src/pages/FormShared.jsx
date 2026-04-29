@@ -519,7 +519,7 @@ export function DocumentHeader({ formTitle, formVersion, formId, isDark }) {
               PMW INDUSTRIES SDN BHD<br />
               PMW CONCRETE INDUSTRIES SDN BHD<br />
               PMW LIGHTING INDUSTRIES SDN BHD<br />
-              WINABUMI SDN BHD
+              PMW WINABUMI SDN BHD
             </td>
           </tr>
 
